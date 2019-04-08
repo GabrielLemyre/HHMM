@@ -1,0 +1,9 @@
+Package: MarkovSwitching
+Title: Package to estimate, test and use Markov Switching Models
+Version: 0.0.0.9000
+Authors@R: person("Gabriel", "Lemyre", email = "gabriell@dms.umontreal.ca", role = c("aut", "cre"))
+Description: This package allows the estimation of the parameters of Hidden Markov Models and their usual extensions. It allows the specification of various architectures for these models like the Hierarchical HMM.
+Depends: R (>= 3.3.1)
+License: None
+Encoding: UTF-8
+LazyData: true
