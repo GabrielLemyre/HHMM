@@ -26,7 +26,7 @@ setwd(path.expand(path)) # Setting path
 # ————————————————————————————————————————————————————————
 # PARAMÈTRES CONTRAINTS -> PARAMÈTRES NON-CONTRAINTS
 # ————————————————————————————————————————————————————————
-normal_HMM_N2W = function(mu, sigma, gamma, type){
+normal_HMM_N2W = function(mu, sigma, gamma, type='HMM'){
 # Function to convert from natural parameters to their working equivalents
 #   The idea is that by changing the constrained parameters to
 #   unconstrained versions, the optimization can be done without
@@ -37,7 +37,14 @@ normal_HMM_N2W = function(mu, sigma, gamma, type){
 # Dernière modification : 25 janvier 2019
 # ———————————————————————————————————————————
     
-    tsigma ->
+    tsigma <- log(sigma)
+    tmu <- mu
+    tgamma <- NULL
+    
+    if (type=='HMM'){
+        nbRegime <- length(mu)
+        
+    }
     
 }
 
@@ -104,3 +111,4 @@ a2_21+e2*a1_11*pi1  a2_22+e2*a1_11*pi2          e2*a1_12*pi3        e2*a1_12*pi4
 e3*a1_21*pi1        e3*a1_21*pi2    a2_33+e3*a1_22*pi3  a2_34+e3*a1_22*pi4 ;
 e4*a1_21*pi1        e4*a1_21*pi2    a2_43+e4*a1_22*pi3  a2_44+e4*a1_22*pi4];
 }
+
