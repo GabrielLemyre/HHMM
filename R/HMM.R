@@ -158,7 +158,12 @@ s <- function(x,n){
     sprintf(paste("%.",n,"f",sep=""), round(x,n))
 }
 
-
+# ——————————————————————————————————————————————————————————————————————————
+# GETTING COLUMNWISE MAXIMUM
+# ——————————————————————————————————————————————————————————————————————————
+colMax <- function(data){
+	apply(data,2, which.max)
+} 
 
 # ————————————————————————————————————————————————————————————————————————————————————
 # ////////////////////////////////////////////////////////////////////
@@ -635,7 +640,8 @@ HMM.Train = function(index,
                      nbRegime=4,
                      type="HMM",
                      auto.assign=FALSE,
-                     data.Origin="MATLAB"){
+                     data.Origin="MATLAB",
+					 path=""){
     
     n <- length(data[,1])
     # --------------------------------------------
@@ -680,12 +686,13 @@ HMM.Train = function(index,
     #the length of logR is one less than Pt
     
     #convert dates into a numeric vector (useful for figures)
-    t_ <- as.POSIXlt(c(as.character(start.date),names(logR)), format="%Y-%m-%d")
-    n.days <- rep(365, length(t_))
-    n.days[((1900+t_$year) %% 4)==0] <- 366 #leap years
-    t_  <- 1900 + t_$year + (t_$yday+1)/n.days
+    dates.Char <- as.POSIXlt(c(names(logR)), format="%Y-%m-%d")
+    n.days <- rep(365, length(dates.Char))
+    n.days[((1900+dates.Char$year) %% 4)==0] <- 366 #leap years
+    dates.Char  <- 1900 + dates.Char$year + (dates.Char$yday+1)/n.days
     
-    plot(t_[-1],logR, type="l")
+    # dim()
+    ts.plot.dev(y=logR, xlabels=dates)
     
     
     # --------------------------------------------
@@ -746,10 +753,20 @@ HMM.Train = function(index,
     
     # HMM.Stack.Plot(smooth.Prob,t_[-1])
     # --------------------------------------------
+    
+    Grid.Plot.HMM.Full(timeseries=logR, 
+    				   dates=dates, 
+    				   state.Probs=smooth.Prob$p.ct.x1T,
+    				   mu=HMM.Train$mu, 
+    				   sigma=HMM.Train$sigma, 
+    				   Gamma=HMM.Train$Gamma, 
+    				   name="test.png",
+    				   path=path)
+    	
     return(list(HMM.Train=HMM.Train,
                 smooth.Prob=smooth.Prob$p.ct.x1T,
                 filtered.Prob=smooth.Prob$p.ct.x1t,
-                dates=t_[-1]))
+                dates=dates.Char[-1]))
 
 }
 
@@ -760,6 +777,31 @@ HMM.Train = function(index,
 # GRAPHICAL OUTPUT FUNCITONS
 # \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 # ————————————————————————————————————————————————————————————————————————————————————
+
+
+# ————————————————————————————————————————————————————————
+# GRAPHICAL PRINT OF TIME-SERIES
+# ————————————————————————————————————————————————————————
+ts.plot.dev = function(y,nbTicks=30, xlabels = NULL){
+	par(mar=c(10,6,3,3),cex.axis=1.5,cex.lab=2,las=2)
+	# Getting length of the time series
+	n <- length(y)
+	
+	# Spacing between the ticks on the x axis
+	xTicksSpace <- n/nbTicks
+	
+	plot(y, type='n',xaxt="n",xlab="", ylab=deparse(substitute(y)),cex.main=1.5, xlim=c(1,n+1),ylim=c(min(y)-1,max(y)+1))
+	lines(y, col="black")
+	
+	# Adding the correct ticks on the x axis
+	axis(side=1,at=seq(from=1, to=n, by=xTicksSpace),labels = xlabels[seq(from=1, to=n, by=xTicksSpace)],lwd=4,lwd.ticks=2,col.ticks="red")
+	
+	# Adding grid to the plot
+	grid(lty=1, col=gray(.9))
+	# Adding an horizontal line at y=0
+	abline(h=0, col="blue")
+}
+
 
 # ————————————————————————————————————————————————————————
 # PROBABILITIES FILL COLOR
@@ -794,7 +836,26 @@ HMM.Stack.Plot = function(series,dates){
 
 
 
-
+Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, mu, sigma, Gamma, name,path,resolution=300){
+	
+	# Getting the state with the maximum probability
+	max.Prob.States <- colMax(state.Probs)
+	
+	# Creating the empty image to be filled with plots
+	bitmap(paste(path,'/',name,sep=""), res=resolution)
+	
+	# Defines the layout of the figure output
+	layout(mat = matrix(c(1,1,2,2,3,4,5,6),ncol=2,nrow = 4,byrow=TRUE))
+	
+	print("Time series printing")
+	ts.plot.dev(y=timeseries, 
+				xlabels=dates)
+	
+	print("Stacking")
+	HMM.Stack.Plot(series=state.Probs,
+				   dates=dates)
+	
+}
 
 
 

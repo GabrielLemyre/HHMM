@@ -1,4 +1,5 @@
 # ----------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------
 # Hidden Markov Models
 # Basic architecture
 # ----------------------------------------------------------------------------------------------------
@@ -11,6 +12,8 @@
 # Last version : april 15th, 2019
 # Last version : april 16th, 2019
 # ----------------------------------------------------------------------------------------------------
+options(max.print=1000000)
+
 #set working directory
 path <- '~/Documents/GitHub/HHMM'
 setwd(path.expand(path)) # Setting path
@@ -25,7 +28,7 @@ head(Data)
 data.freq <- "daily"
 
 index <- "SPXIndex"
-start.date <- as.Date("1990-01-01")
+start.date <- as.Date("2000-01-01")
 end.date   <- as.Date("2019-12-30")
 
 # ————————————————————————————————————————————————————————————————————————————————————
@@ -79,33 +82,33 @@ Gamma.Test=matrix(c(0.90229999, 0.0977, 0, 0.00000001,
 
 
 test <- HMM.Train(index="SPXIndex",
-          Data,
-          start.date,
-          end.date,
-          frequency=5,
-          mult=52,
-          Gamma0=Gamma.HHMM,
-          nbRegime=4,
-          type="HHMM",
-          distribution='Student',
-          data.Origin="R",
-          auto.assign=T)
+				  Data,
+				  start.date,
+				  end.date,
+				  frequency=5,
+				  mult=52,
+				  Gamma0=Gamma.HMM.2,
+				  nbRegime=2,
+				  type="HMM",
+				  distribution='Student',
+				  data.Origin="R",
+				  auto.assign=T,
+				  path=path)
 
-test$Gamma
 
 # (Gamma <- Gamma.Build.HHMM(prob.i=test$HMM.Train$Gamma,
 #                           type="HHMM"))
 
 
-HMM.Stack.Plot(test$smooth.Prob,
-               test$dates)
-
-HMM.Stack.Plot(test$filtered.Prob,
-               test$dates)
-
-
+# HMM.Stack.Plot(test$smooth.Prob,
+#                test$dates)
+# 
+# HMM.Stack.Plot(test$filtered.Prob,
+#                test$dates)
 
 
+
+(max.Prob.States <- colMax(test$filtered.Prob))
 
 
 
