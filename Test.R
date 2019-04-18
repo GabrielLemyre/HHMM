@@ -1,0 +1,111 @@
+# ----------------------------------------------------------------------------------------------------
+# Hidden Markov Models
+# Basic architecture
+# ----------------------------------------------------------------------------------------------------
+# written
+# Gabriel LEMYRE
+# ----------------------------------------------------------------------------------------------------
+# Under the supervision of :
+# Maciej AUGUSTYNIAK
+# ----------------------------------------------------------------------------------------------------
+# Last version : april 15th, 2019
+# Last version : april 16th, 2019
+# ----------------------------------------------------------------------------------------------------
+#set working directory
+path <- '~/Documents/GitHub/HHMM'
+setwd(path.expand(path)) # Setting path
+
+source("R/HMM.R")
+
+
+# Data <- read.csv("1 - Data/Table_Daily.csv")
+Data <- read.csv("1 - Data/DATA_INDEX.csv")
+
+head(Data)
+data.freq <- "daily"
+
+index <- "SPXIndex"
+start.date <- as.Date("1990-01-01")
+end.date   <- as.Date("2019-12-30")
+
+# ————————————————————————————————————————————————————————————————————————————————————
+# ////////////////////////////////////////////////////////////////////
+# TESTING THE CODE
+# \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+# ————————————————————————————————————————————————————————————————————————————————————
+
+Gamma.HMM.2=matrix(c(0.98, 0.02, 
+                     0.02, 0.98),
+                   byrow=T,nrow=2)
+
+Gamma.HMM.3=matrix(c(0.96, 0.02, 0.02, 
+                     0.02, 0.96, 0.02, 
+                     0.02, 0.02, 0.96),
+                   byrow=T,nrow=3)
+
+Gamma.HMM.4=matrix(c(9.791353e-01, 2.695902e-07, 1.527788e-02, 5.586534e-03,
+                     6.668266e-11, 9.682687e-01, 3.173053e-02, 7.292526e-07,
+                     9.760572e-03, 3.632286e-02, 9.532491e-01, 6.674701e-04,
+                     3.702408e-02, 1.075279e-09, 1.519283e-09, 9.629759e-01),
+                   byrow=T,nrow=4)
+
+Gamma.HHMM <- matrix(c(0.95  ,  0.04  , 0.01 ,
+                       0.95  ,  0.04 ,  0.01 ,
+                       0.95   , 0.04 ,  0.01 ,
+                       0.95  ,  0.04  , 0.01 ,
+                       0.85 ,   0.15  , 0    ,
+                       0.85  ,  0.15  , 0  ,
+                       0.5  ,   0.5  ,  0  ,
+                       0.5  ,   0.5 ,   0 ),ncol=3,byrow=T)
+
+mu.Test <- c(-0.4882, 0.0862, 0.0170, 0.1967)
+sigma.Test <- c(2.9746, 1.3410, 0.9686, 0.5169)
+
+Gamma.Test=matrix(c(0.90229999, 0.0977, 0, 0.00000001,
+                   0.0096, 0.9778, 0, 0.0126,
+                   0.0109, 0.0093, 0.8739, 0.1059,
+                   0, 0.0005, 0.0947, 0.9048),
+                 byrow=T,nrow=4)
+
+# parvect <- normal.HMM.N2W(mu.Test,sigma.Test,Gamma.Test,type="HMM")
+# natpar <- normal.HMM.W2N(parvect,type="HMM")
+# 
+# normal.HMM.mllk(normal.HMM.N2W(mu.Test, sigma.Test, Gamma.Test, type="HMM"),
+#                 logR,
+#                 type="HMM",
+#                 distribution="Normal",
+#                 nu=4)
+
+
+
+test <- HMM.Train(index="SPXIndex",
+          Data,
+          start.date,
+          end.date,
+          frequency=5,
+          mult=52,
+          Gamma0=Gamma.HHMM,
+          nbRegime=4,
+          type="HHMM",
+          distribution='Student',
+          data.Origin="R",
+          auto.assign=T)
+
+test$Gamma
+
+# (Gamma <- Gamma.Build.HHMM(prob.i=test$HMM.Train$Gamma,
+#                           type="HHMM"))
+
+
+HMM.Stack.Plot(test$smooth.Prob,
+               test$dates)
+
+HMM.Stack.Plot(test$filtered.Prob,
+               test$dates)
+
+
+
+
+
+
+
