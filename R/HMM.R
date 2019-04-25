@@ -31,6 +31,11 @@ library(matrixcalc) # Permet d'utiliser rbindlist
 # install.packages('magic') #combiner matrice par blocs
 library(magic)
 
+# install.packages('gridExtra') # add tables in plots
+library(gridExtra)
+# install.packages('grid') # add tables in plots
+library(grid)
+
 # ——————————————————————————————————————————————————————————————————————————
 # FONCTION PERMETTANT D'IMPRIMER LE RÉSULTATS EN FORMAT LATEX
 # ——————————————————————————————————————————————————————————————————————————
@@ -163,7 +168,7 @@ s <- function(x,n){
 # ——————————————————————————————————————————————————————————————————————————
 colMax <- function(data){
 	apply(data,2, which.max)
-} 
+}
 
 # ————————————————————————————————————————————————————————————————————————————————————
 # ////////////////////////////////////////////////////////////////////
@@ -433,6 +438,8 @@ normal.HMM.HamiltonFilter = function(mu,
         x <- (data[1]-mu)/sigma
         a.j <- p.ct.x1tm1[,1]*((gamma((nu+1)/2)/gamma(nu/2))/sqrt(nu*pi)/((1+(x^2)/nu)^((nu+1)/2)))/sigma
         
+    }else {
+        stop("The distribution provided is not accepted. \n  Please provide one of the two accepted choices provided here : \n     Normal, Student")
     }
     
     a <- sum(a.j)
@@ -456,7 +463,7 @@ normal.HMM.HamiltonFilter = function(mu,
             x <- (data[i]-mu)/sigma
             a.j <- p.ct.x1tm1[,i]*((gamma((nu+1)/2)/gamma(nu/2))/sqrt(nu*pi)/((1+(x^2)/nu)^((nu+1)/2)))/sigma
             
-        }
+        } 
         
         a <- sum(a.j)
         llk <- llk + log(a)
@@ -599,7 +606,9 @@ normal.HMM.mle <- function(data, mu, sigma, Gamma, type, distribution, nu){
                           type=type, 
                           distribution=distribution, 
                           nu=nu,
-                          iterlim=1000)
+                          iterlim=1000,
+                          gradtol = 1e-20,
+                          hessian=TRUE)
     print(mod)
     natural.par.optim <- normal.HMM.W2N(mod$estimate,type)
     end_time <- Sys.time()
@@ -641,7 +650,13 @@ HMM.Train = function(index,
                      type="HMM",
                      auto.assign=FALSE,
                      data.Origin="MATLAB",
-					 path=""){
+                     PlotName = "test",
+					 path="",
+					 nbTicks=20){
+    
+    if (type=="HHMM"){
+        nbRegime <- 4
+    }
     
     n <- length(data[,1])
     # --------------------------------------------
@@ -736,6 +751,26 @@ HMM.Train = function(index,
     
     print(HMM.Train)
     
+    # If the model is the basic HMM, the parameters are ordered in decreasing
+    # order of the volatility values
+    if (type=="HMM"){
+        # Getting sigma order
+        augmented.sigma <- cbind(HMM.Train$sigma,c(1:nbRegime))
+        order.matrix <- augmented.sigma[order(augmented.sigma[1,], decreasing = TRUE),]
+        order.vector <- order.matrix[,2]
+        
+        # Ordering the parameters in decreasing order of volatility
+        mu.F <- HMM.Train$mu[order.vector]
+        sigma.F <- HMM.Train$sigma[order.vector]
+        Gamma.F <- HMM.Train$Gamma[order.vector,order.vector]
+        
+        # Reassignment of the parameters for the returned parameters in 
+        # HMM.Train to match the ordered values passed in the other functions
+        HMM.Train$mu <- mu.F
+        HMM.Train$sigma <- sigma.F
+        HMM.Train$Gamma <- Gamma.F
+    }
+    
     # --------------------------------------------
     # KIM FILTER -> SMOOTHED PROBABILITIES P[C_t|x_1:T]
     # --------------------------------------------
@@ -754,19 +789,21 @@ HMM.Train = function(index,
     # HMM.Stack.Plot(smooth.Prob,t_[-1])
     # --------------------------------------------
     
-    Grid.Plot.HMM.Full(timeseries=logR, 
-    				   dates=dates, 
+    Grid.Plot.HMM.Full(timeseries=logR,
+    				   dates=dates,
     				   state.Probs=smooth.Prob$p.ct.x1T,
-    				   mu=HMM.Train$mu, 
-    				   sigma=HMM.Train$sigma, 
-    				   Gamma=HMM.Train$Gamma, 
-    				   name="test.png",
-    				   path=path)
+    				   mu=HMM.Train$mu,
+    				   sigma=HMM.Train$sigma,
+    				   Gamma=HMM.Train$Gamma,
+    				   name=PlotName,
+    				   path=path,
+    				   nbTicks=nbTicks)
     	
     return(list(HMM.Train=HMM.Train,
                 smooth.Prob=smooth.Prob$p.ct.x1T,
                 filtered.Prob=smooth.Prob$p.ct.x1t,
-                dates=dates.Char[-1]))
+                dates.char=dates.Char[-1],
+                dates=dates))
 
 }
 
@@ -782,19 +819,19 @@ HMM.Train = function(index,
 # ————————————————————————————————————————————————————————
 # GRAPHICAL PRINT OF TIME-SERIES
 # ————————————————————————————————————————————————————————
-ts.plot.dev = function(y,nbTicks=30, xlabels = NULL){
-	par(mar=c(10,6,3,3),cex.axis=1.5,cex.lab=2,las=2)
+ts.plot.dev = function(y,nbTicks=30, xlabels = NULL,Colors, axis.label.size=1.5){
+	par(mar=c(10,8,6,6),cex.axis=axis.label.size,cex.lab=2,las=2)
 	# Getting length of the time series
 	n <- length(y)
 	
 	# Spacing between the ticks on the x axis
 	xTicksSpace <- n/nbTicks
 	
-	plot(y, type='n',xaxt="n",xlab="", ylab=deparse(substitute(y)),cex.main=1.5, xlim=c(1,n+1),ylim=c(min(y)-1,max(y)+1))
+	plot(y, type='n',xaxt="n",xlab="", ylab=deparse(substitute(y)),cex.main=axis.label.size, xlim=c(1,n),ylim=c(min(y)-1,max(y)+1))
 	lines(y, col="black")
 	
 	# Adding the correct ticks on the x axis
-	axis(side=1,at=seq(from=1, to=n, by=xTicksSpace),labels = xlabels[seq(from=1, to=n, by=xTicksSpace)],lwd=4,lwd.ticks=2,col.ticks="red")
+	axis(side=1,at=c(seq(from=1, to=n, by=xTicksSpace),n),labels = xlabels[c(seq(from=1, to=n, by=xTicksSpace),n)],lwd=4,lwd.ticks=2,col.ticks="red",cex.axis=axis.label.size)
 	
 	# Adding grid to the plot
 	grid(lty=1, col=gray(.9))
@@ -806,29 +843,39 @@ ts.plot.dev = function(y,nbTicks=30, xlabels = NULL){
 # ————————————————————————————————————————————————————————
 # PROBABILITIES FILL COLOR
 # ————————————————————————————————————————————————————————
-HMM.Stack.Plot = function(series,dates){
+HMM.Stack.Plot = function(series,xlabels,nbTicks=30,Colors, axis.label.size=1.5){
     
+    par(mar=c(10,8,6,6),cex.axis=axis.label.size,cex.lab=2,las=2)
     
-    nbRegime <- min(dim(series)) # Nb of regimes
-    n <- max(dim(series)) # Nb of observations
-    cat(nbRegime,"regimes and",n,"observations.")
+    nbRegime <- dim(series)[1] # Nb of regimes
+    n <- dim(series)[2] # Nb of observations
+    cat(nbRegime,"regimes and",n,"observations.\n")
     
+    # Spacing between the ticks on the x axis
+    xTicksSpace <- n/nbTicks
+    
+    seq.labels <- c(seq(from=1, to=n, by=xTicksSpace),n)
+    
+        
     stacked.series <- matrix(0,nbRegime+1,n)
     # Stacking
     for (i in 1:nbRegime){
         stacked.series[i+1,] <- stacked.series[i,] + series[i,]
     }
     
-    plot(dates,stacked.series[1,],type = 'n', ylim = c(0,1),
-         ylab = 'probabilities', xlab = 'dates', col = "red")
+    plot(1:n,stacked.series[1,],type = 'n',xaxt="n", ylim = c(0,1),
+         ylab = 'probabilities', xlab = '', col = "red", xlim=c(1,n))
     
     for (i in 2:nbRegime+1){
-        lines(dates, stacked.series[i,], col = "black")
+        lines(stacked.series[i,], col = "black")
     }
     
+    # Adding the correct ticks on the x axis
+    axis(side=1,at=seq.labels,labels = xlabels[seq.labels],lwd=4,lwd.ticks=2,col.ticks="red",cex.axis=axis.label.size)
+    
     for (i in 1:nbRegime){
-        polygon(c(dates, rev(dates)), c(stacked.series[i+1,], rev(stacked.series[i,])),
-                col = i, border = NA)
+        polygon(c(1:n, rev(1:n)), c(stacked.series[i+1,], rev(stacked.series[i,])),
+                col = Colors[(nbRegime-1),i], border = NA)
     }
     # print(t(stacked.series))
 }
@@ -836,29 +883,74 @@ HMM.Stack.Plot = function(series,dates){
 
 
 
-Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, mu, sigma, Gamma, name,path,resolution=300){
-	
+Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type="HMM", mu, sigma, Gamma, name,path,resolution=300,nbTicks=20){
+    # Colors
+    custom.Colors <- matrix(c("firebrick3","blue4",NA,NA,
+                              "firebrick3","deepskyblue1","blue4",NA,
+                              "firebrick3","darksalmon","deepskyblue1","blue4"),ncol=4,byrow=T)
+    
+    # Title size
+    title.size <- 3
+    axis.label.size <- 2.5
+    
+    # If the model is Hierarchical, the Gamma matrix is built here
+    if (type=="HHMM"){
+        Gamma <- Gamma.Build.HHMM(prob.i=Gamma,
+                                  type=type)
+    }
+    
+    # Getting dates in correct format while keeping only year and month
+    dates.split <- matrix(unlist(strsplit(dates,split="\\-")),ncol=3,byrow=T)
+    dates.Plot <- paste(month.abb[as.numeric(dates.split[,2])],dates.split[,1],sep='-')
+    
 	# Getting the state with the maximum probability
 	max.Prob.States <- colMax(state.Probs)
 	
 	# Creating the empty image to be filled with plots
-	bitmap(paste(path,'/',name,sep=""), res=resolution)
+	# bitmap(paste(path,'/2 - Graphiques/',name,".png",sep=""), res=resolution)
+	jpeg(paste(path,'/2 - Graphiques/',name,".jpg",sep=""), width = 2500, height = 1500) 
 	
 	# Defines the layout of the figure output
 	layout(mat = matrix(c(1,1,2,2,3,4,5,6),ncol=2,nrow = 4,byrow=TRUE))
 	
 	print("Time series printing")
 	ts.plot.dev(y=timeseries, 
-				xlabels=dates)
+	            xlabels=dates.Plot,
+				nbTicks=nbTicks,
+				Colors=custom.Colors,
+				axis.label.size=axis.label.size)
+	title(main = paste(name, "series - ",Sys.time()),cex.main=title.size)
 	
 	print("Stacking")
 	HMM.Stack.Plot(series=state.Probs,
-				   dates=dates)
+	               xlabels=dates.Plot,
+				   nbTicks=nbTicks,
+				   Colors=custom.Colors,
+				   axis.label.size=axis.label.size)
+	title(main = "Smooth probabilities - P[C_t | X_1:T]",cex.main=title.size)
 	
+	# Gamma.df <- data.frame(Gamma,row.names = paste("state.",as.character(1:nbRegime),sep=""))
+	grid.table(Gamma)
+	
+	dev.off()
 }
 
 
-
+# test <- HMM.Train(index="SPXIndex",
+#                   Data,
+#                   start.date,
+#                   end.date,
+#                   frequency=5,
+#                   mult=52,
+#                   Gamma0=Gamma.HMM.3,
+#                   nbRegime=3,
+#                   type="HMM",
+#                   distribution='Normal',
+#                   PlotName = "test1",
+#                   data.Origin="MATLAB",
+#                   auto.assign=T,
+#                   path=path,
+#                   nbTicks=50)
 
 
 

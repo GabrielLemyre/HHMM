@@ -21,14 +21,14 @@ setwd(path.expand(path)) # Setting path
 source("R/HMM.R")
 
 
-# Data <- read.csv("1 - Data/Table_Daily.csv")
-Data <- read.csv("1 - Data/DATA_INDEX.csv")
+Data <- read.csv("1 - Data/Table_Daily.csv") # MATLAB
+# Data <- read.csv("1 - Data/DATA_INDEX.csv") # R
 
 head(Data)
 data.freq <- "daily"
 
 index <- "SPXIndex"
-start.date <- as.Date("2000-01-01")
+start.date <- as.Date("1990-01-01")
 end.date   <- as.Date("2019-12-30")
 
 # ————————————————————————————————————————————————————————————————————————————————————
@@ -41,9 +41,9 @@ Gamma.HMM.2=matrix(c(0.98, 0.02,
                      0.02, 0.98),
                    byrow=T,nrow=2)
 
-Gamma.HMM.3=matrix(c(0.96, 0.02, 0.02, 
-                     0.02, 0.96, 0.02, 
-                     0.02, 0.02, 0.96),
+Gamma.HMM.3=matrix(c(0.99, 0.005, 0.005, 
+                     0.005, 0.99, 0.005, 
+                     0.005, 0.005, 0.99),
                    byrow=T,nrow=3)
 
 Gamma.HMM.4=matrix(c(9.791353e-01, 2.695902e-07, 1.527788e-02, 5.586534e-03,
@@ -81,21 +81,6 @@ Gamma.Test=matrix(c(0.90229999, 0.0977, 0, 0.00000001,
 
 
 
-test <- HMM.Train(index="SPXIndex",
-				  Data,
-				  start.date,
-				  end.date,
-				  frequency=5,
-				  mult=52,
-				  Gamma0=Gamma.HMM.2,
-				  nbRegime=2,
-				  type="HMM",
-				  distribution='Student',
-				  data.Origin="R",
-				  auto.assign=T,
-				  path=path)
-
-
 # (Gamma <- Gamma.Build.HHMM(prob.i=test$HMM.Train$Gamma,
 #                           type="HHMM"))
 
@@ -107,8 +92,21 @@ test <- HMM.Train(index="SPXIndex",
 #                test$dates)
 
 
-
-(max.Prob.States <- colMax(test$filtered.Prob))
-
-
+test <- HMM.Train(index="SPXIndex",
+                  Data,
+                  start.date,
+                  end.date,
+                  frequency=5,
+                  mult=52,
+                  mu0=mu.Test,
+                  sigma0=sigma.Test,
+                  Gamma0=Gamma.HHMM,
+                  nbRegime=3,
+                  type="HHMM",
+                  distribution='Student',
+                  PlotName = "test1",
+                  data.Origin="MATLAB",
+                  auto.assign=F,
+                  path=path,
+                  nbTicks=50)
 
