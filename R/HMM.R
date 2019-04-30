@@ -35,6 +35,8 @@ library(magic)
 library(gridExtra)
 # install.packages('grid') # add tables in plots
 library(grid)
+# install.packages('plotrix') # add tables in plots
+library(plotrix)
 
 # ——————————————————————————————————————————————————————————————————————————
 # FONCTION PERMETTANT D'IMPRIMER LE RÉSULTATS EN FORMAT LATEX
@@ -184,17 +186,22 @@ colMax <- function(data){
 #   unconstrained versions, the optimization can be done without
 #   constraints
 # ————————————————————————————————————————————————————————
-normal.HMM.N2W = function(mu, sigma, Gamma, type){
+normal.HMM.N2W = function(mu, sigma, Gamma, type, Transition.Type){
     
     tsigma <- log(sigma)
     tmu <- mu
     tGamma <- NULL
     
     if (type=='HMM'){
-        nbRegime <- length(mu)
-        trans.Gamma <- log(Gamma/Gamma[,nbRegime])
-        # Retrait de la dernière colonne de notre matrice de transition
-        tGamma      <- as.vector(t(trans.Gamma[,-nbRegime]))
+        if (Transition.Type=="Homogeneous"){
+            nbRegime <- length(mu)
+            trans.Gamma <- log(Gamma/Gamma[,nbRegime])
+            # Retrait de la dernière colonne de notre matrice de transition
+            tGamma      <- as.vector(t(trans.Gamma[,-nbRegime]))
+        } else if (Transition.Type=="Diebold" || Transition.Type=="Diebold.w.filter"){
+            nbRegime <- length(mu)
+            tGamma <- as.vector(t(Gamma)) # Because Beta_0 and Beta_1 are unconstrained vectors of parameters
+        }
         
     } else if (type=='FHMM'){
         p1 <- Gamma[1,1]+Gamma[1,2]
@@ -228,23 +235,39 @@ normal.HMM.N2W = function(mu, sigma, Gamma, type){
 # ————————————————————————————————————————————————————————
 # Function to convert from Working parameters to their natural equivalents
 # ————————————————————————————————————————————————————————
-normal.HMM.W2N = function(parvect, type){
+normal.HMM.W2N = function(parvect, type, Transition.Type){
     if (type=="HMM"){
         
-        nparvect=length(parvect)
-        nbRegime=(-1+sqrt(1+4*nparvect))/2
-        
-        nat.param  <- exp(parvect)
-        mu         <- log(nat.param[1:nbRegime])
-        sigma      <- nat.param[(nbRegime+1):(2*nbRegime)]
-        
-        Gamma   <- t(matrix(nat.param[(2*nbRegime+1):(2*nbRegime+nbRegime*(nbRegime-1))], 
-                            nrow = nbRegime-1, ncol = nbRegime))
-        Gamma   <- cbind(Gamma, rep(1, nbRegime))
-        Gamma   <- Gamma/apply(Gamma,1,sum)
-        
-        # Just to fit the format of the HHMM model below
-        Gamma.Built = Gamma;
+        if (Transition.Type=="Homogeneous"){
+            nparvect=length(parvect)
+            nbRegime=(-1+sqrt(1+4*nparvect))/2
+            
+            nat.param  <- exp(parvect)
+            mu         <- log(nat.param[1:nbRegime])
+            sigma      <- nat.param[(nbRegime+1):(2*nbRegime)]
+            
+            Gamma   <- t(matrix(nat.param[(2*nbRegime+1):(2*nbRegime+nbRegime*(nbRegime-1))], 
+                                nrow = nbRegime-1, ncol = nbRegime))
+            Gamma   <- cbind(Gamma, rep(1, nbRegime))
+            Gamma   <- Gamma/apply(Gamma,1,sum)
+            
+            # Just to fit the format of the HHMM model below
+            Gamma.Built = Gamma;
+            
+        } else if (Transition.Type=="Diebold" || Transition.Type=="Diebold.w.filter"){
+            nparvect=length(parvect)
+            nbRegime=2
+            
+            
+            nat.param  <- exp(parvect)
+            mu         <- log(nat.param[1:nbRegime])
+            sigma      <- nat.param[(nbRegime+1):(2*nbRegime)]
+            
+            Gamma   <- log(matrix(nat.param[(2*nbRegime+1):length(nat.param)], 
+                                nrow = nbRegime,byrow=T))
+            
+            Gamma.Built <- Gamma # Because Beta_0 and Beta_1 are unconstrained vectors of parameters
+        }
         
     } else if (type=="FHMM"){ # Factorial Hidden Markov Model
         nbRegime <- 4;
@@ -259,7 +282,7 @@ normal.HMM.W2N = function(parvect, type){
         
         # Building the transition matrix Gamma only for the purpose of delta
         # calculation
-        Gamma.Built = Gamma.Build.HHMM(prob.i,type);
+        Gamma.Built = Gamma.Build(prob.i,type);
         
     } else if (type=="HHMM"){ # Hierchical Hidden Markov Model
         nbRegime <- 4;
@@ -282,12 +305,15 @@ normal.HMM.W2N = function(parvect, type){
         
         # Building the transition matrix Gamma only for the purpose of delta
         # calculation
-        Gamma.Built = Gamma.Build.HHMM(prob.i=Gamma,type);
+        Gamma.Built = Gamma.Build(prob.i=Gamma,type);
         
     }
     
-    #distribution stationnaire
-    delta    <- solve(t(diag(nbRegime)-Gamma.Built+1),rep(1,nbRegime))
+    
+    if (Transition.Type=="Homogeneous"){
+        #distribution stationnaire
+        delta    <- solve(t(diag(nbRegime)-Gamma.Built+1),rep(1,nbRegime))
+    }
     
     return(list(mu=mu, sigma=sigma, Gamma=Gamma))
 }
@@ -321,45 +347,69 @@ normal.HMM.W2N = function(parvect, type){
 # Gamma=kron(Gamma.1,Gamma.2);
 # —————————————————————————
 # ————————————————————————————————————————————————————————
-Gamma.Build.HHMM = function(prob.i, type){
+Gamma.Build = function(prob.i, type = NULL,
+                            Transition.Type, data=NULL){
     
-    if (type=="HHMM"){
-        a2.11 <- prob.i[1,1]
-        a2.12 <- prob.i[1,2]
-        e1 <- prob.i[1,3]
-        a2.22 <- prob.i[2,1]
-        a2.21 <- prob.i[2,2]
-        e2 <- prob.i[2,3]
-        a2.33 <- prob.i[3,1]
-        a2.34 <- prob.i[3,2]
-        e3 <- prob.i[3,3]
-        a2.44 <- prob.i[4,1]
-        a2.43 <- prob.i[4,2]
-        e4 <- prob.i[4,3]
-        a1.11 <- prob.i[5,1]
-        a1.12 <- prob.i[5,2]
-        a1.22 <- prob.i[6,1]
-        a1.21 <- prob.i[6,2]
-        pi.1 <- prob.i[7,1]
-        pi.2 <- prob.i[7,2]
-        pi.3 <- prob.i[8,1]
-        pi.4 <- prob.i[8,2]
+    if (Transition.Type=="Homogeneous"){
+        if (type=="HHMM"){
+            a2.11 <- prob.i[1,1]
+            a2.12 <- prob.i[1,2]
+            e1 <- prob.i[1,3]
+            a2.22 <- prob.i[2,1]
+            a2.21 <- prob.i[2,2]
+            e2 <- prob.i[2,3]
+            a2.33 <- prob.i[3,1]
+            a2.34 <- prob.i[3,2]
+            e3 <- prob.i[3,3]
+            a2.44 <- prob.i[4,1]
+            a2.43 <- prob.i[4,2]
+            e4 <- prob.i[4,3]
+            a1.11 <- prob.i[5,1]
+            a1.12 <- prob.i[5,2]
+            a1.22 <- prob.i[6,1]
+            a1.21 <- prob.i[6,2]
+            pi.1 <- prob.i[7,1]
+            pi.2 <- prob.i[7,2]
+            pi.3 <- prob.i[8,1]
+            pi.4 <- prob.i[8,2]
+            
+            Gamma.Build = matrix(c(a2.11+e1*a1.11*pi.1,  a2.12+e1*a1.11*pi.2,          e1*a1.12*pi.3,        e1*a1.12*pi.4,
+                                        a2.21+e2*a1.11*pi.1,  a2.22+e2*a1.11*pi.2,          e2*a1.12*pi.3,        e2*a1.12*pi.4,
+                                        e3*a1.21*pi.1,        e3*a1.21*pi.2,          a2.33+e3*a1.22*pi.3,  a2.34+e3*a1.22*pi.4,
+                                        e4*a1.21*pi.1,        e4*a1.21*pi.2,          a2.43+e4*a1.22*pi.3,  a2.44+e4*a1.22*pi.4),
+                                      nrow=4,byrow=T)
+            
+        } else if (type=="FHMM"){
+            #          p1          (1-p1)          (1-p2)        p2
+            Gamma.1 = matrix(c(prob.i(1,1), 1-prob.i(1,1), 1-prob.i(1,2), prob.i(1,2)),nrow=2,byrow=T)
+            #          q1          (1-q1)          (1-q2)        q2
+            Gamma.2 = matrix(c(prob.i(1,3), 1-prob.i(1,3), 1-prob.i(1,4), prob.i(1,4)),nrow=2,byrow=T)
+            # Produit de Kronecker entre les 2 matrices
+            Gamma.Build=kronecker(Gamma.1,Gamma.2);
+        }
+    
+    } else if (Transition.Type=="Diebold"){
+        if (is.null(data)){stop("Please provide the past observation for the non-homogeneous transition probabilities model.")}
         
-        Gamma.Build.HHMM = matrix(c(a2.11+e1*a1.11*pi.1,  a2.12+e1*a1.11*pi.2,          e1*a1.12*pi.3,        e1*a1.12*pi.4,
-                                    a2.21+e2*a1.11*pi.1,  a2.22+e2*a1.11*pi.2,          e2*a1.12*pi.3,        e2*a1.12*pi.4,
-                                    e3*a1.21*pi.1,        e3*a1.21*pi.2,          a2.33+e3*a1.22*pi.3,  a2.34+e3*a1.22*pi.4,
-                                    e4*a1.21*pi.1,        e4*a1.21*pi.2,          a2.43+e4*a1.22*pi.3,  a2.44+e4*a1.22*pi.4),
-                                  nrow=4,byrow=T)
+        Gamma.Build <- matrix(0,nrow=2,ncol=2)
         
-    } else if (type=="FHMM"){
-        #          p1          (1-p1)          (1-p2)        p2
-        Gamma.1 = matrix(c(prob.i(1,1), 1-prob.i(1,1), 1-prob.i(1,2), prob.i(1,2)),nrow=2,byrow=T)
-        #          q1          (1-q1)          (1-q2)        q2
-        Gamma.2 = matrix(c(prob.i(1,3), 1-prob.i(1,3), 1-prob.i(1,4), prob.i(1,4)),nrow=2,byrow=T)
-        # Produit de Kronecker entre les 2 matrices
-        Gamma.Build.HHMM=kronecker(Gamma.1,Gamma.2);
+        diag(Gamma.Build) <- exp(prob.i*data)/(1+exp(prob.i*data))
+        
+        Gamma.Build <- Gamma.Build +  (diag(1,2) - Gamma.Build) %*% matrix(c(0, 1, 1, 0), byrow=T, ncol=2)
+        
+    } else if (Transition.Type=="Diebold.w.filter"){
+        if (is.null(data)){stop("Please provide the past observation for the non-homogeneous transition probabilities model.")}
+        
+        Gamma.Build <- matrix(0,nrow=2,ncol=2)
+        
+        vec.1 <- c(data[1], data[2])
+        vec.2 <- c(data[1], data[3])
+        
+        Gamma.Build[1,1] <- exp(prob.i[1,] %*% vec.1)/(1+exp(prob.i[1,] %*% vec.1))
+        Gamma.Build[2,2] <- exp(prob.i[2,] %*% vec.2)/(1+exp(prob.i[2,] %*% vec.2))
+        
+        Gamma.Build <- Gamma.Build +  (diag(1,2) - Gamma.Build) %*% matrix(c(0, 1, 1, 0), byrow=T, ncol=2)
     }
-    
     
 }
 
@@ -414,10 +464,20 @@ normal.HMM.HamiltonFilter = function(mu,
                                      initial.Distribution=NULL,
                                      data,
                                      distribution="Normal",
+                                     Transition.Type,
                                      nu=4){
     
     nbRegime <- length(mu)
     n <- length(data)
+    
+    # Verification that in the vent that transitions are non-homogeneous, the initial distribution
+    #  is correctly specified
+    if (Transition.Type != "Homogeneous"){
+        if (is.null(initial.Distribution)){
+            stop(paste("The initial distribution must be provided explicitly if the Transitions are non-Homogeneous.\nPlease specify a vector of length ",
+                       nbRegime," for the 'initial.Distribution' parameter."))
+        }
+    }
     
     if (is.null(initial.Distribution)){
         initial.Distribution <- solve(t(diag(nbRegime)-Gamma+1),rep(1,nbRegime))
@@ -454,7 +514,20 @@ normal.HMM.HamiltonFilter = function(mu,
         #     cat("i = ",i,"\n ---- \n",omega.t,'\n')
         # }
         
-        p.ct.x1tm1[,i] <- omega.t%*%Gamma
+        if (Transition.Type != "Homogeneous"){
+            if (Transition.Type=="Diebold"){
+                vec <- data[i-1]
+            } else if (Transition.Type=="Diebold.w.filter"){
+                vec <- c(data[i-1],p.ct.x1t[,i-1])
+            }
+            Gamma.Build = Gamma.Build(prob.i = Gamma, 
+                                Transition.Type=Transition.Type, 
+                                data=vec)
+        } else {
+            Gamma.Build <- Gamma
+        }
+        
+        p.ct.x1tm1[,i] <- omega.t%*%Gamma.Build
         
         if (distribution=="Normal"){
             a.j <- p.ct.x1tm1[,i]*(1/sqrt(2*pi*sigma^2))*exp((-(data[i]-mu)^2)/(2*sigma^2))
@@ -494,6 +567,7 @@ normal.HMM.KimFilter = function(data,
                                 Gamma,
                                 p.ct.x1t=NULL,
                                 initial.Distribution=NULL,
+                                Transition.Type,
                                 nu=nu){
     
     # Testing if the parameters are given or if 
@@ -504,12 +578,20 @@ normal.HMM.KimFilter = function(data,
     }
     
     if (type=="HHMM"){
-        Gamma <- Gamma.Build.HHMM(prob.i=Gamma,
-                                  type=type)
+        Gamma <- Gamma.Build(prob.i=Gamma,
+                                  type=type,
+                             Transition.Type=Transition.Type)
     }
     
     n <- length(data)
     nbRegime <- length(mu)
+    
+    if (Transition.Type != "Homogeneous"){
+        if (is.null(initial.Distribution)){
+            stop(paste("The initial distribution must be provided explicitly if the Transitions are non-Homogeneous.\nPlease specify a vector of length ",
+                       nbRegime," for the 'initial.Distribution' parameter."))
+        }
+    }
     
     # If the initial distribution P[C_1] isn't specified
     # the stationary distribution of Gamma is used
@@ -525,7 +607,8 @@ normal.HMM.KimFilter = function(data,
                                   initial.Distribution=initial.Distribution,
                                   data=data,
                                   distribution=distribution,
-                                  nu=nu)
+                                  nu=nu,
+                                  Transition.Type=Transition.Type)
         p.ct.x1t <- Hamilton.Filter$p.ct.x1t
     }
     
@@ -538,11 +621,23 @@ normal.HMM.KimFilter = function(data,
     # Algorithme de lissage (Filtre de Kim)
     for (t in (n-1):1){
         phi.t.ij <- matrix(NA,nbRegime,nbRegime)
+        if (Transition.Type != "Homogeneous"){
+            if (Transition.Type=="Diebold"){
+                vec <- data[t]
+            } else if (Transition.Type=="Diebold.w.filter"){
+                vec <- c(data[t],p.ct.x1t[,t])
+            }
+            Gamma.Build = Gamma.Build(prob.i = Gamma, 
+                                      Transition.Type=Transition.Type, 
+                                      data=vec)
+        } else {
+            Gamma.Build <- Gamma
+        }
         
         for (i in 1:nbRegime){
             for (j in 1:nbRegime){
                 # Calcul des probabilités conjointes
-                phi.t.ij[i,j] <- p.ct.x1T[j,t+1]*(p.ct.x1t[i,t]*Gamma[i,j]/sum(p.ct.x1t[,t]*Gamma[,j]))
+                phi.t.ij[i,j] <- p.ct.x1T[j,t+1]*(p.ct.x1t[i,t]*Gamma.Build[i,j]/sum(p.ct.x1t[,t]*Gamma.Build[,j]))
             }
         }
         p.ct.x1T[,t] <- rowSums(phi.t.ij)
@@ -563,18 +658,21 @@ normal.HMM.KimFilter = function(data,
 #     Le calcul est effectué à l'aide du filtre d'hamilton (Probabilités
 #     filtrées P[C_t | X_1:t])
 # ————————————————————————————————————————————————————————
-normal.HMM.mllk = function(parvect, data, type, distribution, nu){
+normal.HMM.mllk = function(parvect, data, type, distribution,Transition.Type, nu,
+                           initial.Distribution=initial.Distribution){
     n <- length(data)
     
     natural.par <- normal.HMM.W2N(parvect=parvect,
-                                  type=type)
+                                  type=type,
+                                  Transition.Type=Transition.Type)
     mu <- natural.par$mu
     sigma <- natural.par$sigma
     Gamma <- natural.par$Gamma
     
     if (type=="HHMM"){
-        Gamma <- Gamma.Build.HHMM(prob.i=Gamma,
-                                  type=type)
+        Gamma <- Gamma.Build(prob.i=Gamma,
+                                  type=type,
+                             Transition.Type=Transition.Type)
     }
     
     optim.results <- normal.HMM.HamiltonFilter(mu=mu,
@@ -582,7 +680,9 @@ normal.HMM.mllk = function(parvect, data, type, distribution, nu){
                                                Gamma=Gamma,
                                                data=data,
                                                distribution=distribution,
-                                               nu=nu)
+                                               nu=nu,
+                                               Transition.Type=Transition.Type,
+                                               initial.Distribution=initial.Distribution)
     # print(optim.results$llk)
     llk <- -optim.results$llk
     return(llk)
@@ -594,9 +694,11 @@ normal.HMM.mllk = function(parvect, data, type, distribution, nu){
 #   Optimisation à l'aide du filtre d'Hamilton (Probabilités filtrées 
 #   P[C_t | X_1:t])
 # ————————————————————————————————————————————————————————
-normal.HMM.mle <- function(data, mu, sigma, Gamma, type, distribution, nu){
+normal.HMM.mle <- function(data, mu, sigma, Gamma, type, distribution,Transition.Type, nu,
+                           initial.Distribution=initial.Distribution){
     nbRegime <- length(mu)
-    parvect0       <- normal.HMM.N2W(mu, sigma, Gamma, type)
+    parvect0       <- normal.HMM.N2W(mu, sigma, Gamma, type,
+                                     Transition.Type=Transition.Type)
     
     #Calcul du EVM
     start_time <- Sys.time()
@@ -606,11 +708,21 @@ normal.HMM.mle <- function(data, mu, sigma, Gamma, type, distribution, nu){
                           type=type, 
                           distribution=distribution, 
                           nu=nu,
+                          Transition.Type=Transition.Type,
+                          initial.Distribution=initial.Distribution,
                           iterlim=1000,
-                          gradtol = 1e-20,
-                          hessian=TRUE)
+                          gradtol = 1e-20)
     print(mod)
-    natural.par.optim <- normal.HMM.W2N(mod$estimate,type)
+    
+    natural.par.optim <- normal.HMM.W2N(mod$estimate,type,
+                                        Transition.Type=Transition.Type)
+    
+    if (distribution=='Student'){
+        optim.sigma=natural.par.optim$sigma*sqrt(nu/(nu-2))
+    } else {
+        optim.sigma=natural.par.optim$sigma
+    }
+    
     end_time <- Sys.time()
     cat("Time for optimzation :",end_time - start_time,"\n ----------------------------- \n")
     
@@ -620,7 +732,7 @@ normal.HMM.mle <- function(data, mu, sigma, Gamma, type, distribution, nu){
     AIC            <- 2*(-mllk+np)
     n              <- sum(!is.na(data))
     BIC            <- np*log(n)-2*mllk
-    list(mu=natural.par.optim$mu, sigma=natural.par.optim$sigma, Gamma=natural.par.optim$Gamma, mllk=mllk,
+    list(mu=natural.par.optim$mu, sigma=optim.sigma, Gamma=natural.par.optim$Gamma, mllk=mllk,
          AIC=AIC, BIC=BIC)
 }
 
@@ -645,12 +757,14 @@ HMM.Train = function(index,
                      sigma0=NULL,
                      Gamma0=NULL,
                      distribution="Normal",
+                     initial.Distribution=NULL,
+                     Transition.Type="Homogeneous",
                      nu=4,
                      nbRegime=4,
                      type="HMM",
                      auto.assign=FALSE,
                      data.Origin="MATLAB",
-                     PlotName = "test",
+                     PlotName = NULL,
 					 path="",
 					 nbTicks=20){
     
@@ -711,6 +825,32 @@ HMM.Train = function(index,
     
     
     # --------------------------------------------
+    # NAME CONSTRUCTION FOR PLOT EXPORT
+    # --------------------------------------------
+    if (is.null(PlotName)){
+        dates.Range <- as.character(c(dates.FULL[1],dates.FULL[length(dates.FULL)]))
+        dates.split <- matrix(unlist(strsplit(dates.Range,split="\\-")),ncol=3,byrow=T)
+        dates.Plot <- paste(dates.split[,3],month.abb[as.numeric(dates.split[,2])],dates.split[,1],sep='-')
+        
+        if (frequency==5){
+            freq <- "2-Hebdo"
+        } else if (frequency==20){
+            freq <- "3-Month"
+        } else if (frequency==1){
+            freq <- "1-Daily"
+        } else {
+            freq <- "NULL"
+        }
+        PlotName <- paste(index,
+                          "_(logRx",mult,")(",
+                          freq,")(dist",distribution,")(",
+                          dates.Plot[1],")(",dates.Plot[2],
+                          ")_Modele_",nbRegime,"_regimes_",
+                          type,"_",Transition.Type,"_Transitions",sep="")
+    }
+    
+    
+    # --------------------------------------------
     # PARAMETER AUTOMATIC ASSIGNMENT
     # --------------------------------------------
     # Testing for correct specification of the initial parameters
@@ -728,29 +868,33 @@ HMM.Train = function(index,
     # --------------------------------------------
     # TESTING CORRECT PARAMETER TRANSFORMATION
     # --------------------------------------------
-    parvect <- normal.HMM.N2W(mu0,sigma0,Gamma0,type)
-    natpar <- normal.HMM.W2N(parvect,type)
+    parvect <- normal.HMM.N2W(mu0,sigma0,Gamma0,type,
+                              Transition.Type=Transition.Type)
+    natpar <- normal.HMM.W2N(parvect,type,
+                             Transition.Type=Transition.Type)
     
     
-    
+
     # --------------------------------------------
     # TRAINING FOR OPTIMAL PARAMETERS (HAMILTON)
     # --------------------------------------------
-    
+
     start_time <- Sys.time()
-    HMM.Train <- normal.HMM.mle(data=logR, 
+    HMM.Train <- normal.HMM.mle(data=logR,
                    mu=mu0,
                    sigma=sigma0,
-                   Gamma=Gamma0, 
-                   type=type, 
-                   distribution=distribution, 
-                   nu=nu)
+                   Gamma=Gamma0,
+                   type=type,
+                   distribution=distribution,
+                   nu=nu,
+                   Transition.Type=Transition.Type,
+                   initial.Distribution=initial.Distribution)
     end_time <- Sys.time()
     cat("Time for full estimation :",end_time - start_time,"\n ----------------------------- \n")
-    
-    
+
+
     print(HMM.Train)
-    
+
     # If the model is the basic HMM, the parameters are ordered in decreasing
     # order of the volatility values
     if (type=="HMM"){
@@ -758,37 +902,45 @@ HMM.Train = function(index,
         augmented.sigma <- cbind(HMM.Train$sigma,c(1:nbRegime))
         order.matrix <- augmented.sigma[order(augmented.sigma[1,], decreasing = TRUE),]
         order.vector <- order.matrix[,2]
-        
+
         # Ordering the parameters in decreasing order of volatility
         mu.F <- HMM.Train$mu[order.vector]
         sigma.F <- HMM.Train$sigma[order.vector]
-        Gamma.F <- HMM.Train$Gamma[order.vector,order.vector]
-        
-        # Reassignment of the parameters for the returned parameters in 
+        if (Transition.Type=="Homogeneous"){
+            Gamma.F <- HMM.Train$Gamma[order.vector,order.vector]
+        } else if (Transition.Type=="Diebold"){
+            Gamma.F <- HMM.Train$Gamma[order.vector]
+        } else if (Transition.Type=="Diebold.w.filter"){
+            Gamma.F <- HMM.Train$Gamma[order.vector,]
+        }
+
+        # Reassignment of the parameters for the returned parameters in
         # HMM.Train to match the ordered values passed in the other functions
         HMM.Train$mu <- mu.F
         HMM.Train$sigma <- sigma.F
         HMM.Train$Gamma <- Gamma.F
     }
-    
+
     # --------------------------------------------
     # KIM FILTER -> SMOOTHED PROBABILITIES P[C_t|x_1:T]
     # --------------------------------------------
-    
+
     smooth.Prob <- normal.HMM.KimFilter(data=logR,
                                         type=type,
                                         distribution=distribution,
                                         mu=HMM.Train$mu,
                                         sigma=HMM.Train$sigma,
                                         Gamma=HMM.Train$Gamma,
-                                        nu=nu)
-    
+                                        nu=nu,
+                                        Transition.Type=Transition.Type,
+                                        initial.Distribution=initial.Distribution)
+
     # Uniform color:
     # barplot(my_vector, col=rgb(0.2,0.4,0.6,0.6) )
-    
+
     # HMM.Stack.Plot(smooth.Prob,t_[-1])
     # --------------------------------------------
-    
+
     Grid.Plot.HMM.Full(timeseries=logR,
     				   dates=dates,
     				   state.Probs=smooth.Prob$p.ct.x1T,
@@ -797,7 +949,8 @@ HMM.Train = function(index,
     				   Gamma=HMM.Train$Gamma,
     				   name=PlotName,
     				   path=path,
-    				   nbTicks=nbTicks)
+    				   nbTicks=nbTicks,
+    				   Transition.Type=Transition.Type)
     	
     return(list(HMM.Train=HMM.Train,
                 smooth.Prob=smooth.Prob$p.ct.x1T,
@@ -819,16 +972,23 @@ HMM.Train = function(index,
 # ————————————————————————————————————————————————————————
 # GRAPHICAL PRINT OF TIME-SERIES
 # ————————————————————————————————————————————————————————
-ts.plot.dev = function(y,nbTicks=30, xlabels = NULL,Colors, axis.label.size=1.5){
-	par(mar=c(10,8,6,6),cex.axis=axis.label.size,cex.lab=2,las=2)
+ts.plot.dev = function(y,nbTicks=30, xlabels = NULL,custom.Colors=NULL, axis.label.size=1.5,max.Prob.States=NULL){
+	par(mar=c(10,8,6,6),cex.axis=axis.label.size,cex.lab=3,las=2)
 	# Getting length of the time series
 	n <- length(y)
 	
 	# Spacing between the ticks on the x axis
 	xTicksSpace <- n/nbTicks
 	
-	plot(y, type='n',xaxt="n",xlab="", ylab=deparse(substitute(y)),cex.main=axis.label.size, xlim=c(1,n),ylim=c(min(y)-1,max(y)+1))
-	lines(y, col="black")
+	# plot(y, type='n',xaxt="n",xlab="", ylab=deparse(substitute(y)),cex.main=axis.label.size, xlim=c(1,n),ylim=c(min(y)-1,max(y)+1))
+	if (is.null(max.Prob.States)){
+	    plot(y, type='h',xaxt="n",xlab="", ylab="",cex.main=axis.label.size, xlim=c(1,n),ylim=c(min(y)-1,max(y)+1), xaxs="i")
+	} else {
+	    plot(y, type='h', xaxt="n",xlab="", ylab="",cex.main=axis.label.size, xlim=c(1,n),ylim=c(min(y)-1,max(y)+1), xaxs="i",col=custom.Colors[max.Prob.States])
+	}
+	
+	# lines(y, col="black")
+	title(ylab="Timeserie", line=3.5)
 	
 	# Adding the correct ticks on the x axis
 	axis(side=1,at=c(seq(from=1, to=n, by=xTicksSpace),n),labels = xlabels[c(seq(from=1, to=n, by=xTicksSpace),n)],lwd=4,lwd.ticks=2,col.ticks="red",cex.axis=axis.label.size)
@@ -843,9 +1003,9 @@ ts.plot.dev = function(y,nbTicks=30, xlabels = NULL,Colors, axis.label.size=1.5)
 # ————————————————————————————————————————————————————————
 # PROBABILITIES FILL COLOR
 # ————————————————————————————————————————————————————————
-HMM.Stack.Plot = function(series,xlabels,nbTicks=30,Colors, axis.label.size=1.5){
-    
-    par(mar=c(10,8,6,6),cex.axis=axis.label.size,cex.lab=2,las=2)
+HMM.Stack.Plot = function(series,xlabels,nbTicks=30,custom.Colors, axis.label.size=1.5){
+
+    par(mar=c(10,8,6,6),cex.axis=axis.label.size,cex.lab=3,las=2)
     
     nbRegime <- dim(series)[1] # Nb of regimes
     n <- dim(series)[2] # Nb of observations
@@ -864,7 +1024,8 @@ HMM.Stack.Plot = function(series,xlabels,nbTicks=30,Colors, axis.label.size=1.5)
     }
     
     plot(1:n,stacked.series[1,],type = 'n',xaxt="n", ylim = c(0,1),
-         ylab = 'probabilities', xlab = '', col = "red", xlim=c(1,n))
+         ylab =  "", xlab = '', col = "red", xlim=c(1,n), xaxs="i", yaxs="i")
+    title(ylab = 'probabilities', line=4.5)
     
     for (i in 2:nbRegime+1){
         lines(stacked.series[i,], col = "black")
@@ -875,19 +1036,22 @@ HMM.Stack.Plot = function(series,xlabels,nbTicks=30,Colors, axis.label.size=1.5)
     
     for (i in 1:nbRegime){
         polygon(c(1:n, rev(1:n)), c(stacked.series[i+1,], rev(stacked.series[i,])),
-                col = Colors[(nbRegime-1),i], border = NA)
+                col = custom.Colors[(nbRegime-1),i], border = NA)
     }
+    abline(h=0.5, col="white")
     # print(t(stacked.series))
 }
 
 
 
 
-Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type="HMM", mu, sigma, Gamma, name,path,resolution=300,nbTicks=20){
+Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type="HMM", mu, sigma, Gamma, name,path,resolution=300,nbTicks=20,Transition.Type){
     # Colors
     custom.Colors <- matrix(c("firebrick3","blue4",NA,NA,
                               "firebrick3","deepskyblue1","blue4",NA,
                               "firebrick3","darksalmon","deepskyblue1","blue4"),ncol=4,byrow=T)
+    
+    nbRegime <- length(mu)
     
     # Title size
     title.size <- 3
@@ -895,7 +1059,7 @@ Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type="HMM", mu, si
     
     # If the model is Hierarchical, the Gamma matrix is built here
     if (type=="HHMM"){
-        Gamma <- Gamma.Build.HHMM(prob.i=Gamma,
+        Gamma <- Gamma.Build(prob.i=Gamma,
                                   type=type)
     }
     
@@ -911,46 +1075,114 @@ Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type="HMM", mu, si
 	jpeg(paste(path,'/2 - Graphiques/',name,".jpg",sep=""), width = 2500, height = 1500) 
 	
 	# Defines the layout of the figure output
-	layout(mat = matrix(c(1,1,2,2,3,4,5,6),ncol=2,nrow = 4,byrow=TRUE))
+	layout(mat = matrix(c(1,1,2,2,3,4,3,4,5,6,5,6),ncol=2,nrow = 6,byrow=TRUE))
 	
+	# ————————————————————————————————————————————————————————
 	print("Time series printing")
 	ts.plot.dev(y=timeseries, 
 	            xlabels=dates.Plot,
 				nbTicks=nbTicks,
-				Colors=custom.Colors,
-				axis.label.size=axis.label.size)
+				custom.Colors=custom.Colors[nbRegime,],
+				axis.label.size=axis.label.size,
+				max.Prob.States=max.Prob.States)
 	title(main = paste(name, "series - ",Sys.time()),cex.main=title.size)
 	
+	# ————————————————————————————————————————————————————————
 	print("Stacking")
 	HMM.Stack.Plot(series=state.Probs,
 	               xlabels=dates.Plot,
-				   nbTicks=nbTicks,
-				   Colors=custom.Colors,
-				   axis.label.size=axis.label.size)
+	               nbTicks=nbTicks,
+	               custom.Colors=custom.Colors,
+	               axis.label.size=axis.label.size)
 	title(main = "Smooth probabilities - P[C_t | X_1:T]",cex.main=title.size)
 	
-	# Gamma.df <- data.frame(Gamma,row.names = paste("state.",as.character(1:nbRegime),sep=""))
-	grid.table(Gamma)
+	# ————————————————————————————————————————————————————————
+	print("BoxPlotting")
+	par(mar=c(10,12,12,12),cex.axis=axis.label.size,cex.lab=3,las=2)
+	obs.plus.state <- data.frame(rbind(t(timeseries),t(max.Prob.States)),
+	                             row.names = c("timeseries","max.Prob.States"))
 	
+	boxplot(timeseries~max.Prob.States,
+	        data=obs.plus.state,
+	        col=custom.Colors[nbRegime,],
+	        border="brown")
+	
+	title(main = "Boxplots of observations by\nmaximum probability",
+	      cex.main=title.size)
+	title(xlab="Regimes",
+	      ylab="Observations", 
+	      line=3.5)
+	
+	# ————————————————————————————————————————————————————————
+	print("Parameters")
+	if (Transition.Type=="Homogeneous"){
+	    rowNames <- paste("state",as.character(1:nbRegime),sep="")
+	    colNames <- paste("state",as.character(1:nbRegime),sep="")
+	} else if (Transition.Type=="Diebold"){
+	    rowNames <- paste("Beta",as.character(1:nbRegime),sep="")
+	    colNames <- c("x_(t-1)")
+	} else if (Transition.Type=="Diebold.w.filter"){
+	    rowNames <- paste("Beta",as.character(1:nbRegime),sep="")
+	    colNames <- c("x_(t-1)","P[C_t|x_1:t]")
+	}
+	Gamma.df <- data.frame(Gamma,row.names = rowNames)
+	names(Gamma.df) <- colNames
+	
+	xmin <- 0
+	xmax <- 1
+	
+	#Generate the palette for the matrix and the legend.  Generate labels for the legend
+	palmat <- color.scale(Gamma, c(1, 0.4), c(1, 0.4), c(0.96, 1))
+	palleg <- color.gradient(c(1, 0.4), c(1, 0.4), c(0.96, 1), nslices=100)
+	lableg <- c(formatC(xmin, format="f", digits=4),
+	            formatC(1*(xmax-xmin)/4, format="f", digits=4),
+	            formatC(2*(xmax-xmin)/4, format="f", digits=4),
+	            formatC(3*(xmax-xmin)/4, format="f", digits=4),
+	            formatC(xmax, format="f", digits=4))
+
+	#Set up the plot area and plot the matrix
+	par(mar=c(8, 30, 8, 30))
+	
+	color2D.matplot(Gamma, cellcolors=palmat, 
+	                main="Gamma",
+	                cex.main=title.size, 
+	                show.values=3, 
+	                vcol=rgb(0,0,0), 
+	                axes=FALSE, 
+	                vcex=4, xlab="C_t", ylab="C_t-1")
+	
+	axis(1, at=seq(1, nbRegime, 1)-0.5, labels=rowNames, tck=-0.01, padj=-1)
+    
+	#In the axis() statement below, note that the labels are decreasing.  This is because
+	#the above color2D.matplot() statement has "axes=FALSE" and a normal axis()
+	#statement was used.
+	axis(2, at=seq(1, nbRegime, 1)-0.5, labels=colNames, tck=-0.01, padj=0.7)
+	
+	
+	# ————————————————————————————————————————————————————————
 	dev.off()
 }
 
 
-# test <- HMM.Train(index="SPXIndex",
-#                   Data,
-#                   start.date,
-#                   end.date,
-#                   frequency=5,
-#                   mult=52,
-#                   Gamma0=Gamma.HMM.3,
-#                   nbRegime=3,
-#                   type="HMM",
-#                   distribution='Normal',
-#                   PlotName = "test1",
-#                   data.Origin="MATLAB",
-#                   auto.assign=T,
-#                   path=path,
-#                   nbTicks=50)
+test <- HMM.Train(index="SPXIndex",
+                  Data,
+                  start.date,
+                  end.date,
+                  frequency=5,
+                  mult=52,
+                  # mu0=mu.Test,
+                  # sigma0=sigma.Test,
+                  Gamma0=Gamma.HMM.2,
+                  nbRegime=2,
+                  type="HMM",
+                  distribution='Student',
+                  Transition.Type="Homogeneous",
+                  PlotName = NULL,
+                  data.Origin="MATLAB",
+                  auto.assign=T,
+                  path=path,
+                  nbTicks=30,
+                  initial.Distribution=c(0.5,0.5))
 
 
 
