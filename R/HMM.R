@@ -344,7 +344,8 @@ normal.HMM.W2N = function(parvect, type, Transition.Type){
 # —————————————————————————
 # ————————————————————————————————————————————————————————
 Gamma.Build = function(prob.i, type = NULL,
-                            Transition.Type, data=NULL){
+                            Transition.Type,
+					   nbStepsBack, data=NULL){
     
     if (Transition.Type=="Homogeneous"){
         if (type=="HHMM"){
@@ -385,21 +386,33 @@ Gamma.Build = function(prob.i, type = NULL,
         }
     
     } else if (Transition.Type=="Diebold"){
+    	
+    	if (nbStepsBack!=(length(prob.i)-1)){stop(paste("Not enough parameters for the number of steps back.\n nbStepsBack =",length(nbStepsBack),
+    													"while you have given",dim(prob.i)[2]-1,"parameters, excluding beta_0"))}
+    	
         if (is.null(data)){stop("Please provide the past observation for the non-homogeneous transition probabilities model.")}
         
         Gamma.Build <- matrix(0,nrow=2,ncol=2)
         
-        diag(Gamma.Build) <- exp(prob.i*data)/(1+exp(prob.i*data))
+        vec.1 <- c(1, data)
+        vec.2 <- c(1, data)
+        
+        Gamma.Build[1,1] <- exp(prob.i[1,] %*% vec.1)/(1+exp(prob.i[1,] %*% vec.1))
+        Gamma.Build[2,2] <- exp(prob.i[2,] %*% vec.2)/(1+exp(prob.i[2,] %*% vec.2))
         
         Gamma.Build <- Gamma.Build +  (diag(1,2) - Gamma.Build) %*% matrix(c(0, 1, 1, 0), byrow=T, ncol=2)
         
     } else if (Transition.Type=="Diebold.w.filter"){
+    	
+    	if (nbStepsBack!=(dim(prob.i)[2]-1)){stop(paste("Not enough parameters for the number of steps back.\n nbStepsBack =",2*length(nbStepsBack),
+    													"while you have given",dim(prob.i)[2]-1,"parameters, excluding beta_0"))}
+    	
         if (is.null(data)){stop("Please provide the past observation for the non-homogeneous transition probabilities model.")}
         
         Gamma.Build <- matrix(0,nrow=2,ncol=2)
         
-        vec.1 <- c(data[1], data[2])
-        vec.2 <- c(data[1], data[3])
+        vec.1 <- c(1, data[1:nbStepsBack], data[seq(from=nbStepsBack,by=2,to=length(data))])
+        vec.2 <- c(1, data[1:nbStepsBack], data[seq(from=nbStepsBack+1,by=2,to=length(data))])
         
         Gamma.Build[1,1] <- exp(prob.i[1,] %*% vec.1)/(1+exp(prob.i[1,] %*% vec.1))
         Gamma.Build[2,2] <- exp(prob.i[2,] %*% vec.2)/(1+exp(prob.i[2,] %*% vec.2))
@@ -461,6 +474,7 @@ normal.HMM.HamiltonFilter = function(mu,
                                      data,
                                      distribution="Normal",
                                      Transition.Type,
+									 nbStepsBack,
                                      nu=4){
     
     nbRegime <- length(mu)
@@ -512,12 +526,13 @@ normal.HMM.HamiltonFilter = function(mu,
         
         if (Transition.Type != "Homogeneous"){
             if (Transition.Type=="Diebold"){
-                vec <- data[i-1]
+                vec <- data[i-1:i-nbStepsBack]
             } else if (Transition.Type=="Diebold.w.filter"){
-                vec <- c(data[i-1],p.ct.x1t[,i-1])
+                vec <- c(data[i-1:i-nbStepsBack],p.ct.x1t[,i-1:i-nbStepsBack])
             }
             Gamma.Build = Gamma.Build(prob.i = Gamma, 
-                                Transition.Type=Transition.Type, 
+                                Transition.Type=Transition.Type,
+            						  nbStepsBack=nbStepsBack, 
                                 data=vec,
                                 type=type)
         } else {
@@ -565,7 +580,8 @@ normal.HMM.KimFilter = function(data,
                                 p.ct.x1t=NULL,
                                 initial.Distribution=NULL,
                                 Transition.Type,
-                                nu=nu){
+								nbStepsBack,
+                                nu){
     
     # Testing if the parameters are given or if 
     # the chain of filtered probabilities is given
@@ -577,7 +593,8 @@ normal.HMM.KimFilter = function(data,
     if (type=="HHMM"){
         Gamma <- Gamma.Build(prob.i=Gamma,
                                   type=type,
-                             Transition.Type=Transition.Type)
+                             Transition.Type=Transition.Type,
+        					 nbStepsBack=nbStepsBack)
     }
     
     n <- length(data)
@@ -605,6 +622,7 @@ normal.HMM.KimFilter = function(data,
                                                      data=data,
                                                      distribution=distribution,
                                                      Transition.Type=Transition.Type,
+        											 nbStepsBack=nbStepsBack,
                                                      nu=nu)
         
         p.ct.x1t <- Hamilton.Filter$p.ct.x1t
@@ -621,12 +639,13 @@ normal.HMM.KimFilter = function(data,
         phi.t.ij <- matrix(NA,nbRegime,nbRegime)
         if (Transition.Type != "Homogeneous"){
             if (Transition.Type=="Diebold"){
-                vec <- data[t]
+                vec <- data[t:t-nbStepsBack+1]
             } else if (Transition.Type=="Diebold.w.filter"){
-                vec <- c(data[t],p.ct.x1t[,t])
+                vec <- c(data[t:t-nbStepsBack+1],p.ct.x1t[,t:t-nbStepsBack+1])
             }
             Gamma.Build = Gamma.Build(prob.i = Gamma, 
-                                      Transition.Type=Transition.Type, 
+                                      Transition.Type=Transition.Type,
+            						  nbStepsBack=nbStepsBack, 
                                       data=vec)
         } else {
             Gamma.Build <- Gamma
@@ -656,7 +675,8 @@ normal.HMM.KimFilter = function(data,
 #     Le calcul est effectué à l'aide du filtre d'hamilton (Probabilités
 #     filtrées P[C_t | X_1:t])
 # ————————————————————————————————————————————————————————
-normal.HMM.mllk = function(parvect, data, type, distribution,Transition.Type, nu,
+normal.HMM.mllk = function(parvect, data, type, distribution,Transition.Type,
+						   nbStepsBack, nu,
                            initial.Distribution=initial.Distribution){
     n <- length(data)
     
@@ -670,7 +690,8 @@ normal.HMM.mllk = function(parvect, data, type, distribution,Transition.Type, nu
     if (type=="HHMM"){
         Gamma <- Gamma.Build(prob.i=Gamma,
                                   type=type,
-                             Transition.Type=Transition.Type)
+                             Transition.Type=Transition.Type,
+        					 nbStepsBack=nbStepsBack)
     }
     
     optim.results <- normal.HMM.HamiltonFilter(mu=mu,
@@ -680,6 +701,7 @@ normal.HMM.mllk = function(parvect, data, type, distribution,Transition.Type, nu
                                                distribution=distribution,
                                                nu=nu,
                                                Transition.Type=Transition.Type,
+    										   nbStepsBack=nbStepsBack,
                                                initial.Distribution=initial.Distribution)
     # print(optim.results$llk)
     llk <- -optim.results$llk
@@ -692,7 +714,8 @@ normal.HMM.mllk = function(parvect, data, type, distribution,Transition.Type, nu
 #   Optimisation à l'aide du filtre d'Hamilton (Probabilités filtrées 
 #   P[C_t | X_1:t])
 # ————————————————————————————————————————————————————————
-normal.HMM.mle <- function(data, mu, sigma, Gamma, type, distribution,Transition.Type, nu,
+normal.HMM.mle <- function(data, mu, sigma, Gamma, type, distribution,Transition.Type,
+						   nbStepsBack, nu,
                            initial.Distribution=initial.Distribution){
     nbRegime <- length(mu)
     parvect0       <- normal.HMM.N2W(mu, sigma, Gamma, type,
@@ -707,6 +730,7 @@ normal.HMM.mle <- function(data, mu, sigma, Gamma, type, distribution,Transition
                           distribution=distribution, 
                           nu=nu,
                           Transition.Type=Transition.Type,
+    					  nbStepsBack=nbStepsBack,
                           initial.Distribution=initial.Distribution,
                           iterlim=1000,
                           gradtol = 1e-20)
@@ -757,6 +781,7 @@ HMM.Train = function(index,
                      distribution="Normal",
                      initial.Distribution=NULL,
                      Transition.Type="Homogeneous",
+					 nbStepsBack=NULL,
                      nu=4,
                      nbRegime=4,
                      type="HMM",
@@ -840,8 +865,14 @@ HMM.Train = function(index,
                           "_(logRx",mult,")(",
                           freq,")(dist",distribution,")(",
                           dates.Plot[1],")(",dates.Plot[2],
-                          ")_Modele_",nbRegime,"_regimes_",
+                          ")_",nbRegime,"_regimes_",
                           type,"_",Transition.Type,"_Transitions",sep="")
+        if (!is.null(nbStepsBack)){
+        	PlotName <- paste(PlotName,"_",nbStepsBack,"_step",sep="")
+        	if (nbStepsBack>1){
+        		PlotName <- paste(PlotName,"s",sep="")
+        	}
+        }
     }
     
     
@@ -876,14 +907,15 @@ HMM.Train = function(index,
 
     start_time <- Sys.time()
     HMM.Train <- normal.HMM.mle(data=logR,
-                   mu=mu0,
-                   sigma=sigma0,
-                   Gamma=Gamma0,
-                   type=type,
-                   distribution=distribution,
-                   nu=nu,
-                   Transition.Type=Transition.Type,
-                   initial.Distribution=initial.Distribution)
+    							mu=mu0,
+    							sigma=sigma0,
+    							Gamma=Gamma0,
+    							type=type,
+    							distribution=distribution,
+    							nu=nu,
+    							Transition.Type=Transition.Type,
+    							nbStepsBack=nbStepsBack,
+    							initial.Distribution=initial.Distribution)
     end_time <- Sys.time()
     cat("Time for full estimation :",end_time - start_time,"\n ----------------------------- \n")
 
@@ -904,7 +936,7 @@ HMM.Train = function(index,
         if (Transition.Type=="Homogeneous"){
             Gamma.F <- HMM.Train$Gamma[order.vector,order.vector]
         } else if (Transition.Type=="Diebold"){
-            Gamma.F <- HMM.Train$Gamma[order.vector]
+            Gamma.F <- HMM.Train$Gamma[order.vector,]
         } else if (Transition.Type=="Diebold.w.filter"){
             Gamma.F <- HMM.Train$Gamma[order.vector,]
         }
@@ -928,6 +960,7 @@ HMM.Train = function(index,
                                         Gamma=HMM.Train$Gamma,
                                         nu=nu,
                                         Transition.Type=Transition.Type,
+    									nbStepsBack=nbStepsBack,
                                         initial.Distribution=initial.Distribution)
 
     # --------------------------------------------
@@ -944,6 +977,7 @@ HMM.Train = function(index,
     				   path=path,
     				   nbTicks=nbTicks,
     				   Transition.Type=Transition.Type,
+    				   nbStepsBack=nbStepsBack,
     				   type=type)
     	
     return(list(HMM.Train=HMM.Train,
@@ -1224,19 +1258,16 @@ Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type="HMM", mu, si
 	    
 	} else if (Transition.Type=="Diebold"){
 	    rowNames <- paste("Beta",as.character(1:nbRegime),sep="")
-	    colNames <- "x_(t-1)"
-	    xmin <- min(Gamma)
-	    xmax <- max(Gamma)
-	    Gamma <- matrix(Gamma,nrow=nbRegime,ncol=1)
+	    colNames <- c("1",paste("x_(t-",nbStepsBack:1,")",sep=""))
 	    
 	    #Generate the palette for the matrix and the legend.  Generate labels for the legend
 	    palmat <- "#ffffff"
 	    
 	} else if (Transition.Type=="Diebold.w.filter"){
 	    rowNames <- paste("Beta",as.character(1:nbRegime),sep="")
-	    colNames <- c("x_(t-1)","P[C_t|x_1:t]")
-	    xmin <- min(Gamma)
-	    xmax <- max(Gamma)
+	    colNames <- c("1",
+	    			  paste("x_(t-",nbStepsBack:1,")",sep=""),
+	    			  paste("P[C_(t-",nbStepsBack:1,")|x_1:(t-",nbStepsBack:1,")]",sep=""))
 	    
 	    #Generate the palette for the matrix and the legend.  Generate labels for the legend
 	    palmat <- "#ffffff"
@@ -1269,7 +1300,9 @@ Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type="HMM", mu, si
 	# COLUMN LABELS
 	if (type=="HMM"){
 	    if (Transition.Type=="Diebold"){
-	        axis(1, at=0.5, labels=colNames, padj=0.5,line = 2, las=0, tick=F,cex.axis=cex.lab)
+	        axis(1, at=c(1:2+(nbStepsBack-1))-0.5, labels=colNames, padj=0.5,line = 2, las=0, tick=F,cex.axis=cex.lab)
+	    } else if (Transition.Type=="Diebold.w.filter"){
+	    	axis(1, at=c(1:3+2*(nbStepsBack-1))-0.5, labels=colNames, padj=0.5,line = 2, las=0, tick=F,cex.axis=cex.lab)
 	    } else {
 	        axis(1, at=seq(1, nbRegime, 1)-0.5, labels=colNames, padj=0.5,line = 2, las=0, tick=F,cex.axis=cex.lab)
 	    }

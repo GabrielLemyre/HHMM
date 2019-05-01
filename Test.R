@@ -59,9 +59,13 @@ Gamma.HHMM <- matrix(c(0.95  ,  0.04  , 0.01 ,
                        0.5  ,   0.5  ,  0  ,
                        0.5  ,   0.5 ,   0 ),ncol=3,byrow=T)
 
-Gamma.HMM.Diebold=c(-4.928700, 7.773485)
+Gamma.HMM.Diebold <- matrix(c( 2,-4.928700,  # beta_0.0, beta_0.1
+							   1, 7.773485), # beta_1.0, beta_1.1
+							nrow=2, byrow=T)
 
-Gamma.HMM.Diebold.w.filter <- matrix(c(-5, 2, 1, 6), nrow=2, byrow=T)
+Gamma.HMM.Diebold.w.filter <- matrix(c(2, -5, 2, # beta_0.0, beta_0.1, beta_0.2
+									   1,  1, 6), # beta_1.0, beta_1.1, beta_1.2
+									 nrow=2, byrow=T)
 
 mu.Test <- c(-0.4882, 0.0862, 0.0170, 0.1967)
 sigma.Test <- c(2.9746, 1.3410, 0.9686, 0.5169)
@@ -102,14 +106,16 @@ test <- HMM.Train(index <- "SPXIndex",
                   mult=52,
                   # mu0=mu.Test,
                   # sigma0=sigma.Test,
-                  Gamma0=Gamma.HHMM,
+                  Gamma0=Gamma.HMM.Diebold.w.filter,
                   nbRegime=2,
-                  type="HHMM",
+                  type="HMM",
                   distribution='Normal',
-                  Transition.Type="Homogeneous",
+                  Transition.Type="Diebold.w.filter",
+				  nbStepsBack=1,
                   PlotName = NULL,
                   data.Origin="MATLAB",
                   auto.assign=T,
                   path=path,
-                  nbTicks=30)
+                  nbTicks=30,
+				  initial.Distribution = c(1,0))
 
