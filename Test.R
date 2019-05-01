@@ -27,9 +27,7 @@ Data <- read.csv("1 - Data/Table_Daily.csv") # MATLAB
 head(Data)
 data.freq <- "daily"
 
-index <- "SPXIndex"
-start.date <- as.Date("1990-01-01")
-end.date   <- as.Date("2019-12-30")
+
 
 # ————————————————————————————————————————————————————————————————————————————————————
 # ////////////////////////////////////////////////////////////////////
@@ -41,9 +39,9 @@ Gamma.HMM.2=matrix(c(0.98, 0.02,
                      0.02, 0.98),
                    byrow=T,nrow=2)
 
-Gamma.HMM.3=matrix(c(0.97, 0.015, 0.015, 
-                     0.015, 0.97, 0.015, 
-                     0.015, 0.015, 0.97),
+Gamma.HMM.3=matrix(c(0.9048, 0.0952, 0.0000000001, 
+                     0.0122, 0.9485, 0.0393, 
+                     0.0000000001, 0.0429, 0.9571),
                    byrow=T,nrow=3)
 
 Gamma.HMM.4=matrix(c(9.791353e-01, 2.695902e-07, 1.527788e-02, 5.586534e-03,
@@ -96,23 +94,22 @@ Gamma.Test=matrix(c(0.90229999, 0.0977, 0, 0.00000001,
 #                test$dates)
 
 
-test <- HMM.Train(index="SPXIndex",
+test <- HMM.Train(index <- "SPXIndex",
                   Data,
-                  start.date,
-                  end.date,
+                  start.date <- as.Date("1990-01-01"),
+                  end.date   <- as.Date("2019-12-30"),
                   frequency=5,
                   mult=52,
                   # mu0=mu.Test,
                   # sigma0=sigma.Test,
-                  Gamma0=Gamma.HMM.Diebold.w.filter,
+                  Gamma0=Gamma.HHMM,
                   nbRegime=2,
-                  type="HMM",
+                  type="HHMM",
                   distribution='Normal',
-                  Transition.Type="Diebold.w.filter",
-                  PlotName = "test1",
+                  Transition.Type="Homogeneous",
+                  PlotName = NULL,
                   data.Origin="MATLAB",
                   auto.assign=T,
                   path=path,
-                  nbTicks=30,
-                  initial.Distribution=c(1,0))
+                  nbTicks=30)
 

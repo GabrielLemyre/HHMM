@@ -282,7 +282,8 @@ normal.HMM.W2N = function(parvect, type, Transition.Type){
         
         # Building the transition matrix Gamma only for the purpose of delta
         # calculation
-        Gamma.Built = Gamma.Build(prob.i,type);
+        Gamma.Built = Gamma.Build(prob.i,type,
+                                  Transition.Type=Transition.Type);
         
     } else if (type=="HHMM"){ # Hierchical Hidden Markov Model
         nbRegime <- 4;
@@ -305,14 +306,9 @@ normal.HMM.W2N = function(parvect, type, Transition.Type){
         
         # Building the transition matrix Gamma only for the purpose of delta
         # calculation
-        Gamma.Built = Gamma.Build(prob.i=Gamma,type);
+        Gamma.Built = Gamma.Build(prob.i=Gamma,type,
+                                  Transition.Type=Transition.Type);
         
-    }
-    
-    
-    if (Transition.Type=="Homogeneous"){
-        #distribution stationnaire
-        delta    <- solve(t(diag(nbRegime)-Gamma.Built+1),rep(1,nbRegime))
     }
     
     return(list(mu=mu, sigma=sigma, Gamma=Gamma))
@@ -486,7 +482,7 @@ normal.HMM.HamiltonFilter = function(mu,
     # —————————————————————————————————————————————————
     # HAMILTON FORWARD FILTERING
     # —————————————————————————————————————————————————
-    p.ct.x1t <- p.ct.x1tm1 <- matrix(NA,nbRegime,n)
+    p.ct.x1t <- p.ct.x1tm1 <- matrix(nrow=nbRegime,ncol=n)
     
     # FIRST STEP OF THE PROCESS
     p.ct.x1tm1[,1] <- initial.Distribution
@@ -522,7 +518,8 @@ normal.HMM.HamiltonFilter = function(mu,
             }
             Gamma.Build = Gamma.Build(prob.i = Gamma, 
                                 Transition.Type=Transition.Type, 
-                                data=vec)
+                                data=vec,
+                                type=type)
         } else {
             Gamma.Build <- Gamma
         }
@@ -602,13 +599,14 @@ normal.HMM.KimFilter = function(data,
     # Calcul des probabilités filtrées par l'algorithme du filtre d'Hamilton
     if (is.null(p.ct.x1t)){
         Hamilton.Filter <- normal.HMM.HamiltonFilter(mu=mu,
-                                  sigma=sigma,
-                                  Gamma=Gamma,
-                                  initial.Distribution=initial.Distribution,
-                                  data=data,
-                                  distribution=distribution,
-                                  nu=nu,
-                                  Transition.Type=Transition.Type)
+                                                     sigma=sigma,
+                                                     Gamma=Gamma,
+                                                     initial.Distribution=initial.Distribution,
+                                                     data=data,
+                                                     distribution=distribution,
+                                                     Transition.Type=Transition.Type,
+                                                     nu=nu)
+        
         p.ct.x1t <- Hamilton.Filter$p.ct.x1t
     }
     
@@ -820,10 +818,7 @@ HMM.Train = function(index,
     n.days[((1900+dates.Char$year) %% 4)==0] <- 366 #leap years
     dates.Char  <- 1900 + dates.Char$year + (dates.Char$yday+1)/n.days
     
-    # dim()
-    ts.plot.dev(y=logR, xlabels=dates)
-    
-    
+    acf(diff(Pt))
     # --------------------------------------------
     # NAME CONSTRUCTION FOR PLOT EXPORT
     # --------------------------------------------
@@ -868,10 +863,10 @@ HMM.Train = function(index,
     # --------------------------------------------
     # TESTING CORRECT PARAMETER TRANSFORMATION
     # --------------------------------------------
-    parvect <- normal.HMM.N2W(mu0,sigma0,Gamma0,type,
-                              Transition.Type=Transition.Type)
-    natpar <- normal.HMM.W2N(parvect,type,
-                             Transition.Type=Transition.Type)
+    # parvect <- normal.HMM.N2W(mu0,sigma0,Gamma0,type,
+    #                           Transition.Type=Transition.Type)
+    # natpar <- normal.HMM.W2N(parvect,type,
+    #                          Transition.Type=Transition.Type)
     
     
 
@@ -900,9 +895,9 @@ HMM.Train = function(index,
     if (type=="HMM"){
         # Getting sigma order
         augmented.sigma <- cbind(HMM.Train$sigma,c(1:nbRegime))
-        order.matrix <- augmented.sigma[order(augmented.sigma[1,], decreasing = TRUE),]
+        order.matrix <- augmented.sigma[order(augmented.sigma[,1], decreasing = TRUE),]
         order.vector <- order.matrix[,2]
-
+        
         # Ordering the parameters in decreasing order of volatility
         mu.F <- HMM.Train$mu[order.vector]
         sigma.F <- HMM.Train$sigma[order.vector]
@@ -935,10 +930,6 @@ HMM.Train = function(index,
                                         Transition.Type=Transition.Type,
                                         initial.Distribution=initial.Distribution)
 
-    # Uniform color:
-    # barplot(my_vector, col=rgb(0.2,0.4,0.6,0.6) )
-
-    # HMM.Stack.Plot(smooth.Prob,t_[-1])
     # --------------------------------------------
 
     Grid.Plot.HMM.Full(timeseries=logR,
@@ -946,11 +937,14 @@ HMM.Train = function(index,
     				   state.Probs=smooth.Prob$p.ct.x1T,
     				   mu=HMM.Train$mu,
     				   sigma=HMM.Train$sigma,
+    				   nu=nu,
+    				   distribution=distribution,
     				   Gamma=HMM.Train$Gamma,
     				   name=PlotName,
     				   path=path,
     				   nbTicks=nbTicks,
-    				   Transition.Type=Transition.Type)
+    				   Transition.Type=Transition.Type,
+    				   type=type)
     	
     return(list(HMM.Train=HMM.Train,
                 smooth.Prob=smooth.Prob$p.ct.x1T,
@@ -972,8 +966,8 @@ HMM.Train = function(index,
 # ————————————————————————————————————————————————————————
 # GRAPHICAL PRINT OF TIME-SERIES
 # ————————————————————————————————————————————————————————
-ts.plot.dev = function(y,nbTicks=30, xlabels = NULL,custom.Colors=NULL, axis.label.size=1.5,max.Prob.States=NULL){
-	par(mar=c(10,8,6,6),cex.axis=axis.label.size,cex.lab=3,las=2)
+ts.plot.dev = function(y,nbTicks=30, xlabels = NULL,custom.Colors=NULL, axis.label.size=1.5,max.Prob.States=NULL,lwd=4){
+	par(mar=c(20,16,12,12),cex.axis=axis.label.size,cex.lab=6,las=2)
 	# Getting length of the time series
 	n <- length(y)
 	
@@ -982,13 +976,13 @@ ts.plot.dev = function(y,nbTicks=30, xlabels = NULL,custom.Colors=NULL, axis.lab
 	
 	# plot(y, type='n',xaxt="n",xlab="", ylab=deparse(substitute(y)),cex.main=axis.label.size, xlim=c(1,n),ylim=c(min(y)-1,max(y)+1))
 	if (is.null(max.Prob.States)){
-	    plot(y, type='h',xaxt="n",xlab="", ylab="",cex.main=axis.label.size, xlim=c(1,n),ylim=c(min(y)-1,max(y)+1), xaxs="i")
+	    plot(y, type='h',lwd=lwd, xaxt="n",xlab="", ylab="",cex.main=axis.label.size, xlim=c(1,n),ylim=c(min(y)-1,max(y)+1), xaxs="i")
 	} else {
-	    plot(y, type='h', xaxt="n",xlab="", ylab="",cex.main=axis.label.size, xlim=c(1,n),ylim=c(min(y)-1,max(y)+1), xaxs="i",col=custom.Colors[max.Prob.States])
+	    plot(y, type='h', lwd=lwd, xaxt="n",xlab="", ylab="",cex.main=axis.label.size, xlim=c(1,n),ylim=c(min(y)-1,max(y)+1), xaxs="i",col=custom.Colors[max.Prob.States])
 	}
 	
 	# lines(y, col="black")
-	title(ylab="Timeserie", line=3.5)
+	title(ylab="Timeserie", line=7)
 	
 	# Adding the correct ticks on the x axis
 	axis(side=1,at=c(seq(from=1, to=n, by=xTicksSpace),n),labels = xlabels[c(seq(from=1, to=n, by=xTicksSpace),n)],lwd=4,lwd.ticks=2,col.ticks="red",cex.axis=axis.label.size)
@@ -1005,7 +999,7 @@ ts.plot.dev = function(y,nbTicks=30, xlabels = NULL,custom.Colors=NULL, axis.lab
 # ————————————————————————————————————————————————————————
 HMM.Stack.Plot = function(series,xlabels,nbTicks=30,custom.Colors, axis.label.size=1.5){
 
-    par(mar=c(10,8,6,6),cex.axis=axis.label.size,cex.lab=3,las=2)
+    par(mar=c(20,16,12,12),cex.axis=axis.label.size,cex.lab=6,las=2)
     
     nbRegime <- dim(series)[1] # Nb of regimes
     n <- dim(series)[2] # Nb of observations
@@ -1025,7 +1019,7 @@ HMM.Stack.Plot = function(series,xlabels,nbTicks=30,custom.Colors, axis.label.si
     
     plot(1:n,stacked.series[1,],type = 'n',xaxt="n", ylim = c(0,1),
          ylab =  "", xlab = '', col = "red", xlim=c(1,n), xaxs="i", yaxs="i")
-    title(ylab = 'probabilities', line=4.5)
+    title(ylab = 'probabilities', line=9)
     
     for (i in 2:nbRegime+1){
         lines(stacked.series[i,], col = "black")
@@ -1045,7 +1039,7 @@ HMM.Stack.Plot = function(series,xlabels,nbTicks=30,custom.Colors, axis.label.si
 
 
 
-Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type="HMM", mu, sigma, Gamma, name,path,resolution=300,nbTicks=20,Transition.Type){
+Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type="HMM", mu, sigma,nu,distribution, Gamma, name,path,resolution=300,nbTicks=20,Transition.Type){
     # Colors
     custom.Colors <- matrix(c("firebrick3","blue4",NA,NA,
                               "firebrick3","deepskyblue1","blue4",NA,
@@ -1054,13 +1048,16 @@ Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type="HMM", mu, si
     nbRegime <- length(mu)
     
     # Title size
-    title.size <- 3
-    axis.label.size <- 2.5
+    title.size <- 6
+    axis.label.size <- 5
+    line.width <- 8
+    cex.lab <- 7.5
     
     # If the model is Hierarchical, the Gamma matrix is built here
     if (type=="HHMM"){
-        Gamma <- Gamma.Build(prob.i=Gamma,
-                                  type=type)
+        Gamma.Built <- Gamma.Build(prob.i=Gamma,
+                                  type=type,
+                             Transition.Type)
     }
     
     # Getting dates in correct format while keeping only year and month
@@ -1070,9 +1067,23 @@ Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type="HMM", mu, si
 	# Getting the state with the maximum probability
 	max.Prob.States <- colMax(state.Probs)
 	
+	# Calculation of the frequency of each regime
+    state.Realisation <- matrix(ncol=nbRegime)
+    for (i in 1:nbRegime){
+        state.Realisation[i] <- sum(max.Prob.States==i)
+    }
+    state.Realisation.pad <- c(state.Realisation,rep(0,4-nbRegime))
+    
+    # Keeping only the parameters of the realized states for the distribution plotting
+    nbRegime.vector <- 1:nbRegime
+    mu.Realized <- mu[state.Realisation>0]
+    sigma.Realized <- sigma[state.Realisation>0]
+    custom.Colors.Realized <- custom.Colors[,state.Realisation.pad>0]
+    regimes.Realized <- nbRegime.vector[state.Realisation>0]
+    
 	# Creating the empty image to be filled with plots
 	# bitmap(paste(path,'/2 - Graphiques/',name,".png",sep=""), res=resolution)
-	jpeg(paste(path,'/2 - Graphiques/',name,".jpg",sep=""), width = 2500, height = 1500) 
+	jpeg(paste(path,'/2 - Graphiques/',name,".jpg",sep=""), width = 5000, height = 3000) 
 	
 	# Defines the layout of the figure output
 	layout(mat = matrix(c(1,1,2,2,3,4,3,4,5,6,5,6),ncol=2,nrow = 6,byrow=TRUE))
@@ -1082,9 +1093,10 @@ Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type="HMM", mu, si
 	ts.plot.dev(y=timeseries, 
 	            xlabels=dates.Plot,
 				nbTicks=nbTicks,
-				custom.Colors=custom.Colors[nbRegime,],
+				custom.Colors=custom.Colors[nbRegime-1,],
 				axis.label.size=axis.label.size,
-				max.Prob.States=max.Prob.States)
+				max.Prob.States=max.Prob.States,
+				lwd = 4)
 	title(main = paste(name, "series - ",Sys.time()),cex.main=title.size)
 	
 	# ————————————————————————————————————————————————————————
@@ -1097,51 +1109,141 @@ Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type="HMM", mu, si
 	title(main = "Smooth probabilities - P[C_t | X_1:T]",cex.main=title.size)
 	
 	# ————————————————————————————————————————————————————————
+	print("Distribution plotting")
+	par(mar=c(20,24,24,24),cex.axis=axis.label.size,cex.lab=cex.lab,las=0)
+	
+	nbRegime.Realized <- length(mu.Realized)
+	
+	step.distr = 2*(max(mu.Realized)+3.5*max(sigma.Realized))/100000
+	x <- seq(from= -(max(mu.Realized)+3.5*max(sigma.Realized)),
+	           to=  (max(mu.Realized)+3.5*max(sigma.Realized)),
+	           by= step.distr)
+	y <- matrix(nrow=nbRegime.Realized,ncol=length(x))
+	
+	if (distribution=="Normal"){
+	    for (i in 1:nbRegime.Realized){
+	        y[i,] <- dnorm(x, mean=mu.Realized[i], sd=sigma.Realized[i])
+	    }
+	} else if (distribution=="Student"){
+	    for (i in 1:nbRegime.Realized){
+	        y[i,] <- dt((x-mu.Realized[i])/sigma.Realized[i],df=nu)/sigma.Realized[i]
+	    }
+	}
+	
+	plot(x,y[1,],col=custom.Colors.Realized[nbRegime-1,1],
+	     type="l",lwd=line.width,
+	     xlab="",
+	     ylab="",xlim=c(min(x)-1,max(x)+1),ylim=c(0,max(y)+0.1),xaxt="n")
+	
+	for (i in 2:nbRegime.Realized){
+	    lines(x=x,y=y[i,],col=custom.Colors.Realized[nbRegime-1,i],lwd=line.width,xaxt="n")
+	}
+	abline(v=mu.Realized, col=custom.Colors.Realized[nbRegime-1,],lwd=line.width, lty=2)
+
+	title(main = "Statistical Distributions\nof realized states",
+	      cex.main=title.size)
+	axis(side=1,line=2, tick=F)
+	
+	# ————————————————————————————————————————————————————————
 	print("BoxPlotting")
-	par(mar=c(10,12,12,12),cex.axis=axis.label.size,cex.lab=3,las=2)
+	par(mar=c(20,24,24,24),cex.axis=axis.label.size,cex.lab=cex.lab,las=0)
 	obs.plus.state <- data.frame(rbind(t(timeseries),t(max.Prob.States)),
 	                             row.names = c("timeseries","max.Prob.States"))
 	
 	boxplot(timeseries~max.Prob.States,
 	        data=obs.plus.state,
-	        col=custom.Colors[nbRegime,],
-	        border="brown")
+	        col=custom.Colors.Realized[nbRegime-1,],
+	        border="brown", 
+	        lwd=4,
+	        varwidth = TRUE, xaxt="n")
 	
 	title(main = "Boxplots of observations by\nmaximum probability",
 	      cex.main=title.size)
 	title(xlab="Regimes",
 	      ylab="Observations", 
-	      line=3.5)
+	      line=10)
+	
+	boxlabels <- paste("state ",regimes.Realized,
+	                   " - [ ",
+	                   as.character(round(100*state.Realisation[state.Realisation>0]/sum(state.Realisation[state.Realisation>0]),2)),"% ]",sep="")
+	
+	axis(side=1,at=1:length(mu.Realized),
+	     labels=boxlabels,
+	     line=3, tick=F)
 	
 	# ————————————————————————————————————————————————————————
-	print("Parameters")
-	if (Transition.Type=="Homogeneous"){
-	    rowNames <- paste("state",as.character(1:nbRegime),sep="")
+	print("mu and sigma")
+	
+	rowNames <- c("mu","sigma")
+	if (type=="HMM"){
 	    colNames <- paste("state",as.character(1:nbRegime),sep="")
+	} else if (type=="HHMM"){
+	    colNames <- as.character(paste(paste("state",c(1,1,2,2),sep=""),1:2,sep=""))
+	}
+	
+	#Set up the plot area and plot the matrix
+	par(mar=c(16, 60, 16, 60))
+	
+	color2D.matplot(rbind(mu,sigma),cellcolors="#ffffff", 
+	                main="Parameters",
+	                cex.main=title.size, 
+	                show.values=3, 
+	                vcol=rgb(0,0,0), 
+	                axes=FALSE, 
+	                vcex=cex.lab, xlab="", ylab="")
+	
+	# ROW LABELS
+	axis(2, at=seq(2, 1, -1)-0.5, labels=rowNames, padj=0.5,line = 4, las=0, tick=F,cex.axis=cex.lab)
+
+	# COLUMN LABELS
+	for (i in 1:nbRegime){
+	    axis(1, at=i-0.5, labels=colNames[i], padj=0.5,line = 2, las=0, tick=F,cex.axis=cex.lab,col.axis=custom.Colors[nbRegime-1,i])
+	}
+	
+	# ————————————————————————————————————————————————————————
+	print("Gamma")
+	if (Transition.Type=="Homogeneous"){
+	    if (type=="HMM"){
+	        rowNames <- paste("state",as.character(1:nbRegime),sep="")
+	        colNames <- paste("state",as.character(1:nbRegime),sep="")
+	    } else if (type=="HHMM"){
+	        rowNames <- c("a^2.11 - a^2.12 - e1",
+	                      "a^2.22 - a^2.21 - e2",
+	                      "a^2.33 - a^2.34 - e3",
+	                      "a^2.44 - a^2.43 - e4",
+	                      "a^1.11 - a^1.12",
+	                      "a^1.22 - a^1.21",
+	                      "pi.1 - pi.2",
+	                      "pi.3 - pi.4")
+	        colNames <- rep("",3)
+	    }
+	    xmin <- 0
+	    xmax <- 1
+	    #Generate the palette for the matrix and the legend.  Generate labels for the legend
+	    palmat <- color.scale(Gamma, c(1, 0.4), c(1, 0.4), c(0.96, 1))
+	    
 	} else if (Transition.Type=="Diebold"){
 	    rowNames <- paste("Beta",as.character(1:nbRegime),sep="")
-	    colNames <- c("x_(t-1)")
+	    colNames <- "x_(t-1)"
+	    xmin <- min(Gamma)
+	    xmax <- max(Gamma)
+	    Gamma <- matrix(Gamma,nrow=nbRegime,ncol=1)
+	    
+	    #Generate the palette for the matrix and the legend.  Generate labels for the legend
+	    palmat <- "#ffffff"
+	    
 	} else if (Transition.Type=="Diebold.w.filter"){
 	    rowNames <- paste("Beta",as.character(1:nbRegime),sep="")
 	    colNames <- c("x_(t-1)","P[C_t|x_1:t]")
+	    xmin <- min(Gamma)
+	    xmax <- max(Gamma)
+	    
+	    #Generate the palette for the matrix and the legend.  Generate labels for the legend
+	    palmat <- "#ffffff"
 	}
-	Gamma.df <- data.frame(Gamma,row.names = rowNames)
-	names(Gamma.df) <- colNames
 	
-	xmin <- 0
-	xmax <- 1
-	
-	#Generate the palette for the matrix and the legend.  Generate labels for the legend
-	palmat <- color.scale(Gamma, c(1, 0.4), c(1, 0.4), c(0.96, 1))
-	palleg <- color.gradient(c(1, 0.4), c(1, 0.4), c(0.96, 1), nslices=100)
-	lableg <- c(formatC(xmin, format="f", digits=4),
-	            formatC(1*(xmax-xmin)/4, format="f", digits=4),
-	            formatC(2*(xmax-xmin)/4, format="f", digits=4),
-	            formatC(3*(xmax-xmin)/4, format="f", digits=4),
-	            formatC(xmax, format="f", digits=4))
-
 	#Set up the plot area and plot the matrix
-	par(mar=c(8, 30, 8, 30))
+	par(mar=c(16, 60, 16, 60))
 	
 	color2D.matplot(Gamma, cellcolors=palmat, 
 	                main="Gamma",
@@ -1149,40 +1251,57 @@ Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type="HMM", mu, si
 	                show.values=3, 
 	                vcol=rgb(0,0,0), 
 	                axes=FALSE, 
-	                vcex=4, xlab="C_t", ylab="C_t-1")
+	                vcex=cex.lab, xlab="", ylab="")
 	
-	axis(1, at=seq(1, nbRegime, 1)-0.5, labels=rowNames, tck=-0.01, padj=-1)
-    
-	#In the axis() statement below, note that the labels are decreasing.  This is because
-	#the above color2D.matplot() statement has "axes=FALSE" and a normal axis()
-	#statement was used.
-	axis(2, at=seq(1, nbRegime, 1)-0.5, labels=colNames, tck=-0.01, padj=0.7)
+	# ROW LABELS
+	if (type=="HMM"){
+	    if (Transition.Type=="Diebold" || Transition.Type=="Diebold.w.filter"){
+	        for (i in 1:nbRegime){
+	            axis(2, at=(nbRegime-i+1)-0.5, labels=rowNames[i], padj=0.5,line = 2, las=0, tick=F,cex.axis=cex.lab,col.axis=custom.Colors[nbRegime-1,i])
+	        }
+	    } else if (Transition.Type=="Homogeneous"){
+	        axis(2, at=seq(nbRegime,1, -1)-0.5, labels=rowNames, padj=0.5,line = 2, las=0, tick=F,cex.axis=cex.lab)
+	    }
+	} else if (type=="HHMM"){
+	    axis(2, at=seq(from=8, to=1, by=-1), labels=rowNames, padj=1.5,line = 2, las=2, tick=F,cex.axis=cex.lab)
+	}
 	
+	# COLUMN LABELS
+	if (type=="HMM"){
+	    if (Transition.Type=="Diebold"){
+	        axis(1, at=0.5, labels=colNames, padj=0.5,line = 2, las=0, tick=F,cex.axis=cex.lab)
+	    } else {
+	        axis(1, at=seq(1, nbRegime, 1)-0.5, labels=colNames, padj=0.5,line = 2, las=0, tick=F,cex.axis=cex.lab)
+	    }
+	} else if (type=="HHMM"){
+	    
+	}
 	
 	# ————————————————————————————————————————————————————————
 	dev.off()
+	print(name)
 }
 
 
-test <- HMM.Train(index="SPXIndex",
-                  Data,
-                  start.date,
-                  end.date,
-                  frequency=5,
-                  mult=52,
-                  # mu0=mu.Test,
-                  # sigma0=sigma.Test,
-                  Gamma0=Gamma.HMM.2,
-                  nbRegime=2,
-                  type="HMM",
-                  distribution='Student',
-                  Transition.Type="Homogeneous",
-                  PlotName = NULL,
-                  data.Origin="MATLAB",
-                  auto.assign=T,
-                  path=path,
-                  nbTicks=30,
-                  initial.Distribution=c(0.5,0.5))
+# test <- HMM.Train(index="SPXIndex",
+#                   Data,
+#                   start.date,
+#                   end.date,
+#                   frequency=5,
+#                   mult=52,
+#                   # mu0=mu.Test,
+#                   # sigma0=sigma.Test,
+#                   Gamma0=Gamma.HMM.4,
+#                   nbRegime=4,
+#                   type="HMM",
+#                   distribution='Student',
+#                   Transition.Type="Diebold.w.filter",
+#                   PlotName = NULL,
+#                   data.Origin="MATLAB",
+#                   auto.assign=T,
+#                   path=path,
+#                   nbTicks=30,
+#                   initial.Distribution=c(0,0,0,1))
 
 
 
