@@ -35,12 +35,12 @@ data.freq <- "daily"
 # \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 # ————————————————————————————————————————————————————————————————————————————————————
 
-Gamma.HMM.2=matrix(c(0.98, 0.02, 
+Gamma.HMM.2=matrix(c(0.98, 0.02,
                      0.02, 0.98),
                    byrow=T,nrow=2)
 
-Gamma.HMM.3=matrix(c(0.9048, 0.0952, 0.0000000001, 
-                     0.0122, 0.9485, 0.0393, 
+Gamma.HMM.3=matrix(c(0.9048, 0.0952, 0.0000000001,
+                     0.0122, 0.9485, 0.0393,
                      0.0000000001, 0.0429, 0.9571),
                    byrow=T,nrow=3)
 
@@ -78,7 +78,7 @@ Gamma.Test=matrix(c(0.90229999, 0.0977, 0, 0.00000001,
 
 # parvect <- normal.HMM.N2W(mu.Test,sigma.Test,Gamma.Test,type="HMM")
 # natpar <- normal.HMM.W2N(parvect,type="HMM")
-# 
+#
 # normal.HMM.mllk(normal.HMM.N2W(mu.Test, sigma.Test, Gamma.Test, type="HMM"),
 #                 logR,
 #                 type="HMM",
@@ -93,7 +93,7 @@ Gamma.Test=matrix(c(0.90229999, 0.0977, 0, 0.00000001,
 
 # HMM.Stack.Plot(test$smooth.Prob,
 #                test$dates)
-# 
+#
 # HMM.Stack.Plot(test$filtered.Prob,
 #                test$dates)
 
@@ -106,11 +106,11 @@ test <- HMM.Train(index <- "SPXIndex",
                   mult=52,
                   # mu0=mu.Test,
                   # sigma0=sigma.Test,
-                  Gamma0=Gamma.HMM.Diebold.w.filter,
+                  Gamma0=Gamma.HMM.Diebold,
                   nbRegime=2,
                   type="HMM",
                   distribution='Normal',
-                  Transition.Type="Diebold.w.filter",
+                  Transition.Type="Diebold",
 				  nbStepsBack=1,
                   PlotName = NULL,
                   data.Origin="MATLAB",
