@@ -50,6 +50,9 @@ Gamma.HMM.4=matrix(c(9.791353e-01, 2.695902e-07, 1.527788e-02, 5.586534e-03,
                      3.702408e-02, 1.075279e-09, 1.519283e-09, 9.629759e-01),
                    byrow=T,nrow=4)
 
+Gamma.HMM.4 <- matrix(1/300,ncol=4,nrow=4)
+diag(Gamma.HMM.4) <- 0.99
+
 Gamma.HHMM <- matrix(c(0.95  ,  0.04  , 0.01 ,
                        0.95  ,  0.04 ,  0.01 ,
                        0.95   , 0.04 ,  0.01 ,
@@ -107,15 +110,14 @@ test <- HMM.Train(index <- "SPXIndex",
                   # mu0=mu.Test,
                   # sigma0=sigma.Test,
                   Gamma0=Gamma.HMM.Diebold,
-                  nbRegime=2,
+                  nbRegime=4,
                   type="HMM",
                   distribution='Normal',
                   Transition.Type="Diebold",
-				  nbStepsBack=1,
                   PlotName = NULL,
                   data.Origin="MATLAB",
                   auto.assign=T,
                   path=path,
                   nbTicks=30,
-				  initial.Distribution = c(1,0))
+                  initial.Distribution = c(1,0))
 

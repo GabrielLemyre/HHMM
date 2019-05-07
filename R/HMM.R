@@ -385,41 +385,44 @@ Gamma.Build = function(prob.i, type = NULL,
             Gamma.Build=kronecker(Gamma.1,Gamma.2);
         }
 
-    } else if (Transition.Type=="Diebold"){
+    } else {
+        if (Transition.Type=="Diebold"){
 
-        if (nbStepsBack!=(dim(prob.i)[2]-1)){stop(paste("Not enough parameters for the number of steps back.\n nbStepsBack =",nbStepsBack,
-                                                        "while you have given",dim(prob.i)[2]-1,"parameters, excluding beta_0"))}
+            # if (nbStepsBack!=(dim(prob.i)[2]-1)){stop(paste("Not enough parameters for the number of steps back.\n nbStepsBack =",nbStepsBack,
+            #                                                 "while you have given",dim(prob.i)[2]-1,"parameters, excluding beta_0"))}
 
-        if (is.null(data)){stop("Please provide the past observation for the non-homogeneous transition probabilities model.")}
+            if (is.null(data)){stop("Please provide the past observation for the non-homogeneous transition probabilities model.")}
 
-        Gamma.Build <- matrix(0,nrow=2,ncol=2)
+            Gamma.Build <- matrix(0,nrow=2,ncol=2)
 
-        vec.1 <- c(1, data)
-        vec.2 <- c(1, data)
+            vec.1 <- c(1, data)
+            vec.2 <- c(1, data)
 
-        Gamma.Build[1,1] <- exp(prob.i[1,] %*% vec.1)/(1+exp(prob.i[1,] %*% vec.1))
-        Gamma.Build[2,2] <- exp(prob.i[2,] %*% vec.2)/(1+exp(prob.i[2,] %*% vec.2))
+            Gamma.Build[1,1] <- exp(prob.i[1,] %*% vec.1)/(1+exp(prob.i[1,] %*% vec.1))
+            Gamma.Build[2,2] <- exp(prob.i[2,] %*% vec.2)/(1+exp(prob.i[2,] %*% vec.2))
 
-        Gamma.Build <- Gamma.Build +  (diag(1,2) - Gamma.Build) %*% matrix(c(0, 1, 1, 0), byrow=T, ncol=2)
+            Gamma.Build <- Gamma.Build +  (diag(1,2) - Gamma.Build) %*% matrix(c(0, 1, 1, 0), byrow=T, ncol=2)
 
-    } else if (Transition.Type=="Diebold.w.filter"){
+        } else if (Transition.Type=="Diebold.w.filter"){
 
-        if (2*nbStepsBack!=(dim(prob.i)[2]-1)){stop(paste("Not enough parameters for the number of steps back.\n nbStepsBack =",2*nbStepsBack,
-                                                        "while you have given",dim(prob.i)[2]-1,"parameters, excluding beta_0"))}
+            # if (2*nbStepsBack!=(dim(prob.i)[2]-1)){stop(paste("Not enough parameters for the number of steps back.\n nbStepsBack =",2*nbStepsBack,
+            #                                                 "while you have given",dim(prob.i)[2]-1,"parameters, excluding beta_0"))}
 
-        if (is.null(data)){stop("Please provide the past observation for the non-homogeneous transition probabilities model.")}
+            if (is.null(data)){stop("Please provide the past observation for the non-homogeneous transition probabilities model.")}
 
-        Gamma.Build <- matrix(0,nrow=2,ncol=2)
+            Gamma.Build <- matrix(0,nrow=2,ncol=2)
 
-        vec.1 <- c(1, data[1:nbStepsBack], data[seq(from=nbStepsBack,by=2,to=length(data))])
-        vec.2 <- c(1, data[1:nbStepsBack], data[seq(from=nbStepsBack+1,by=2,to=length(data))])
+            vec.1 <- c(1, data[1], data[2])
+            vec.2 <- c(1, data[1], data[3])
 
-        Gamma.Build[1,1] <- exp(prob.i[1,] %*% vec.1)/(1+exp(prob.i[1,] %*% vec.1))
-        Gamma.Build[2,2] <- exp(prob.i[2,] %*% vec.2)/(1+exp(prob.i[2,] %*% vec.2))
+            Gamma.Build[1,1] <- exp(prob.i[1,] %*% vec.1)/(1+exp(prob.i[1,] %*% vec.1))
+            Gamma.Build[2,2] <- exp(prob.i[2,] %*% vec.2)/(1+exp(prob.i[2,] %*% vec.2))
 
-        Gamma.Build <- Gamma.Build +  (diag(1,2) - Gamma.Build) %*% matrix(c(0, 1, 1, 0), byrow=T, ncol=2)
+            Gamma.Build <- Gamma.Build +  (diag(1,2) - Gamma.Build) %*% matrix(c(0, 1, 1, 0), byrow=T, ncol=2)
+        }
     }
-
+    return(list(Gamma=Gamma.Build,
+                pers.Gamma=diag(Gamma.Build)))
 }
 
 
@@ -496,16 +499,17 @@ normal.HMM.HamiltonFilter = function(mu,
     # —————————————————————————————————————————————————
     # HAMILTON FORWARD FILTERING
     # —————————————————————————————————————————————————
-    p.ct.x1t <- p.ct.x1tm1 <- matrix(nrow=nbRegime,ncol=(n-nbStepsBack+1))
+    p.ct.x1t <- p.ct.x1tm1 <- matrix(nrow=nbRegime,ncol=n)
+    pers.Gamma <- matrix(nrow=nbRegime,ncol=(n-1))
 
     # FIRST STEP OF THE PROCESS
     p.ct.x1tm1[,1] <- initial.Distribution
 
     if (distribution=="Normal"){
-        a.j <- p.ct.x1tm1[,1]*(1/sqrt(2*pi*sigma^2))*exp((-(data[nbStepsBack]-mu)^2)/(2*sigma^2))
+        a.j <- p.ct.x1tm1[,1]*(1/sqrt(2*pi*sigma^2))*exp((-(data[1]-mu)^2)/(2*sigma^2))
 
     } else if  (distribution=="Student"){
-        x <- (data[nbStepsBack]-mu)/sigma
+        x <- (data[1]-mu)/sigma
         a.j <- p.ct.x1tm1[,1]*((gamma((nu+1)/2)/gamma(nu/2))/sqrt(nu*pi)/((1+(x^2)/nu)^((nu+1)/2)))/sigma
 
     }else {
@@ -519,45 +523,49 @@ normal.HMM.HamiltonFilter = function(mu,
 
 
     # STEPS (2:n) OF THE PROCESS
-    for (i in (nbStepsBack+1):n){
+    for (i in 2:n){
         if (Transition.Type != "Homogeneous"){
             if (Transition.Type=="Diebold"){
-                vec <- data[(i-nbStepsBack):(i-1)]
+                vec <- data[i-1]
             } else if (Transition.Type=="Diebold.w.filter"){
-                vec <- c(data[(i-nbStepsBack):(i-1)],p.ct.x1t[,(i-nbStepsBack):(i-1)])
+                vec <- c(data[i-1],p.ct.x1t[,(i-1)])
             }
             Gamma.Build = Gamma.Build(prob.i = Gamma,
                                       Transition.Type=Transition.Type,
                                       nbStepsBack=nbStepsBack,
                                       data=vec,
                                       type=type)
+
+            pers.Gamma[,i-1] <- Gamma.Build$pers.Gamma
+            Gamma.Build <- Gamma.Build$Gamma
+
         } else {
             Gamma.Build <- Gamma
         }
 
-        temp.i <- i-nbStepsBack+1
 
-        p.ct.x1tm1[,temp.i] <- omega.t%*%Gamma.Build
+        p.ct.x1tm1[,i] <- omega.t%*%Gamma.Build
 
         if (distribution=="Normal"){
-            a.j <- p.ct.x1tm1[,temp.i]*(1/sqrt(2*pi*sigma^2))*exp((-(data[i]-mu)^2)/(2*sigma^2))
+            a.j <- p.ct.x1tm1[,i]*(1/sqrt(2*pi*sigma^2))*exp((-(data[i]-mu)^2)/(2*sigma^2))
 
         } else if  (distribution=="Student"){
             x <- (data[i]-mu)/sigma
-            a.j <- p.ct.x1tm1[,temp.i]*((gamma((nu+1)/2)/gamma(nu/2))/sqrt(nu*pi)/((1+(x^2)/nu)^((nu+1)/2)))/sigma
+            a.j <- p.ct.x1tm1[,i]*((gamma((nu+1)/2)/gamma(nu/2))/sqrt(nu*pi)/((1+(x^2)/nu)^((nu+1)/2)))/sigma
 
         }
 
         a <- sum(a.j)
         llk <- llk + log(a)
         omega.t <- a.j/a
-        p.ct.x1t[,temp.i] <- omega.t
+        p.ct.x1t[,i] <- omega.t
     }
 
 
     return(list(llk=llk,
                 p.ct.x1tm1=p.ct.x1tm1,
-                p.ct.x1t=p.ct.x1t))
+                p.ct.x1t=p.ct.x1t,
+                pers.Gamma=pers.Gamma))
 }
 
 
@@ -593,6 +601,8 @@ normal.HMM.KimFilter = function(data,
                              type=type,
                              Transition.Type=Transition.Type,
                              nbStepsBack=nbStepsBack)
+
+        Gamma <- Gamma.Build$Gamma
     }
 
     n <- length(data)
@@ -612,41 +622,44 @@ normal.HMM.KimFilter = function(data,
     }
 
     # Calcul des probabilités filtrées par l'algorithme du filtre d'Hamilton
-    if (is.null(p.ct.x1t)){
-        Hamilton.Filter <- normal.HMM.HamiltonFilter(mu=mu,
-                                                     sigma=sigma,
-                                                     Gamma=Gamma,
-                                                     initial.Distribution=initial.Distribution,
-                                                     data=data,
-                                                     distribution=distribution,
-                                                     Transition.Type=Transition.Type,
-                                                     nbStepsBack=nbStepsBack,
-                                                     nu=nu)
+    # et retour de la diagonale de la matrice de transition si les transitions
+    # ne sont pas homogènes
+    Hamilton.Filter <- normal.HMM.HamiltonFilter(mu=mu,
+                                                 sigma=sigma,
+                                                 Gamma=Gamma,
+                                                 initial.Distribution=initial.Distribution,
+                                                 data=data,
+                                                 distribution=distribution,
+                                                 Transition.Type=Transition.Type,
+                                                 nbStepsBack=nbStepsBack,
+                                                 nu=nu)
+    # We keep the filtered probabilities from the Hamilton filter
+    p.ct.x1t <- Hamilton.Filter$p.ct.x1t
 
-        p.ct.x1t <- Hamilton.Filter$p.ct.x1t
+    # Initialization of the matrix to keep the diagonal of the transition matrix
+    # step-by-step if the transitions aren't homogeneous
+    pers.Gamma <- matrix(nrow=nbRegime,ncol=(n-1))
+    if (Transition.Type!="Homogeneous"){
+        pers.Gamma <- Hamilton.Filter$pers.Gamma
     }
+    plot(pers.Gamma[1,],pers.Gamma[2,])
+
+    # Alert message and information on localization of mistake if NAs are returned
+    # by the Hamilton filter
+    if (sum(is.na(p.ct.x1t))>0){stop(paste("NAs in p.ct.x1t are at",which(is.na(p.ct.x1t))," in Kim filter\n"))}
 
     # Initialisation de la matrice de probabilités lissées
-    p.ct.x1T <- matrix(NA,nbRegime,(n-nbStepsBack+1))
-    # Defining the last step of the process which starts at nbStepsBack
-    last.Step.Index <- nbStepsBack
+    p.ct.x1T <- matrix(NA,nbRegime,n)
 
     # Probabilite de la derniere observation de la variable latente
-    p.ct.x1T[,(n-nbStepsBack+1)] <- p.ct.x1t[,(n-nbStepsBack+1)]
+    p.ct.x1T[,n] <- p.ct.x1t[,n]
 
     # Algorithme de lissage (Filtre de Kim)
-    for (t in (n-1):last.Step.Index){
+    for (t in (n-1):1){
         phi.t.ij <- matrix(NA,nbRegime,nbRegime)
+
         if (Transition.Type != "Homogeneous"){
-            if (Transition.Type=="Diebold"){
-                vec <- data[t:(t-nbStepsBack+1)]
-            } else if (Transition.Type=="Diebold.w.filter"){
-                vec <- c(data[t:(t-nbStepsBack+1)],p.ct.x1t[,t:(t-nbStepsBack+1)])
-            }
-            Gamma.Build = Gamma.Build(prob.i = Gamma,
-                                      Transition.Type=Transition.Type,
-                                      nbStepsBack=nbStepsBack,
-                                      data=vec)
+            Gamma.Build <- diag(pers.Gamma[,t]) +  (diag(1,2) - pers.Gamma[,t]) %*% matrix(c(0, 1, 1, 0), byrow=T, ncol=2)
         } else {
             Gamma.Build <- Gamma
         }
@@ -654,14 +667,15 @@ normal.HMM.KimFilter = function(data,
         for (i in 1:nbRegime){
             for (j in 1:nbRegime){
                 # Calcul des probabilités conjointes
-                phi.t.ij[i,j] <- p.ct.x1T[j,((t-last.Step.Index+1)+1)]*(p.ct.x1t[i,t]*Gamma.Build[i,j]/sum(p.ct.x1t[,(t-last.Step.Index+1)]*Gamma.Build[,j]))
+                phi.t.ij[i,j] <- p.ct.x1T[j,t+1]*(p.ct.x1t[i,t]*Gamma.Build[i,j]/sum(p.ct.x1t[,t]*Gamma.Build[,j]))
             }
         }
-        p.ct.x1T[,(t-last.Step.Index+1)] <- rowSums(phi.t.ij)
+        p.ct.x1T[,t] <- rowSums(phi.t.ij)
     }
 
     return(list(p.ct.x1T=p.ct.x1T,
-                p.ct.x1t=p.ct.x1t))
+                p.ct.x1t=p.ct.x1t,
+                pers.Gamma=pers.Gamma))
 }
 
 # ————————————————————————————————————————————————————————————————————————————————————
@@ -788,11 +802,16 @@ HMM.Train = function(index,
                      auto.assign=FALSE,
                      data.Origin="MATLAB",
                      PlotName = NULL,
+                     special.suffix.name=NULL,
                      path="",
                      nbTicks=20){
 
     if (type=="HHMM"){
         nbRegime <- 4
+    }
+
+    if (Transition.Type!="Homogeneous"){
+        nbRegime <- 2
     }
 
     n <- length(data[,1])
@@ -843,7 +862,6 @@ HMM.Train = function(index,
     n.days[((1900+dates.Char$year) %% 4)==0] <- 366 #leap years
     dates.Char  <- 1900 + dates.Char$year + (dates.Char$yday+1)/n.days
 
-    acf(diff(Pt))
     # --------------------------------------------
     # NAME CONSTRUCTION FOR PLOT EXPORT
     # --------------------------------------------
@@ -872,6 +890,9 @@ HMM.Train = function(index,
             if (nbStepsBack>1){
                 PlotName <- paste(PlotName,"s",sep="")
             }
+        }
+        if (!is.null(special.suffix.name)){
+            PlotName <- paste(PlotName,"_",special.suffix.name,sep="")
         }
     }
 
@@ -978,7 +999,9 @@ HMM.Train = function(index,
                        nbTicks=nbTicks,
                        Transition.Type=Transition.Type,
                        nbStepsBack=nbStepsBack,
-                       type=type)
+                       type=type,
+                       optimResults=HMM.Train,
+                       diag.pers.Gamma=smooth.Prob$pers.Gamma)
 
     return(list(HMM.Train=HMM.Train,
                 smooth.Prob=smooth.Prob$p.ct.x1T,
@@ -1078,7 +1101,8 @@ HMM.Stack.Plot = function(series,xlabels,nbTicks=30,custom.Colors, axis.label.si
 Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type="HMM", mu,
                               sigma,nu,distribution, Gamma, name,path,
                               resolution=300,nbTicks=20,Transition.Type,
-                              nbStepsBack){
+                              nbStepsBack,optimResults,
+                              diag.pers.Gamma){
     # Colors
     custom.Colors <- matrix(c("firebrick3","blue4",NA,NA,
                               "firebrick3","deepskyblue1","blue4",NA,
@@ -1106,6 +1130,7 @@ Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type="HMM", mu,
     # Getting the state with the maximum probability
     max.Prob.States <- colMax(state.Probs)
     print(state.Probs)
+    if (sum(is.na(state.Probs))>0){stop(paste("These steps are NA :",which(is.na(state.Probs)),"\n"))}
 
     # Calculation of the frequency of each regime
     state.Realisation <- matrix(ncol=nbRegime)
@@ -1126,7 +1151,22 @@ Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type="HMM", mu,
     jpeg(paste(path,'/2 - Graphiques/',name,".jpg",sep=""), width = 5000, height = 3000)
 
     # Defines the layout of the figure output
-    layout(mat = matrix(c(1,1,2,2,3,4,3,4,5,6,5,6),ncol=2,nrow = 6,byrow=TRUE))
+    if (Transition.Type=="Homogeneous"){
+        layout(mat = matrix(c(1,1,
+                              2,2,
+                              3,4,
+                              3,4,
+                              5,6,
+                              7,6),ncol=2,nrow = 6,byrow=TRUE))
+    } else {
+        layout(mat = matrix(c(1,1,
+                              2,2,
+                              3,4,
+                              3,4,
+                              5,6,
+                              7,6,
+                              8,8),ncol=2,nrow = 7,byrow=TRUE))
+    }
 
     # ————————————————————————————————————————————————————————
     print("Time series printing")
@@ -1234,7 +1274,7 @@ Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type="HMM", mu,
                     vcex=cex.lab, xlab="", ylab="")
 
     # ROW LABELS
-    axis(2, at=seq(2, 1, -1)-0.5, labels=rowNames, padj=0.5,line = 4, las=0, tick=F,cex.axis=cex.lab)
+    axis(2, at=seq(2, 1, -1)-0.5, labels=rowNames, padj=0.5,line = 2, las=2, tick=F,cex.axis=cex.lab)
 
     # COLUMN LABELS
     for (i in 1:nbRegime){
@@ -1265,16 +1305,28 @@ Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type="HMM", mu,
 
     } else if (Transition.Type=="Diebold"){
         rowNames <- paste("Beta",as.character(1:nbRegime),sep="")
-        colNames <- c("1",paste("x_(t-",nbStepsBack:1,")",sep=""))
+
+        if (nbStepsBack>1){
+            colNames <- colNames <- c("1",paste("x_(t-",nbStepsBack:1,")",sep=""))
+        } else {
+            colNames <- c("1","x_(t-1)")
+        }
 
         #Generate the palette for the matrix and the legend.  Generate labels for the legend
         palmat <- "#ffffff"
 
     } else if (Transition.Type=="Diebold.w.filter"){
         rowNames <- paste("Beta",as.character(1:nbRegime),sep="")
-        colNames <- c("1",
-                      paste("x_(t-",nbStepsBack:1,")",sep=""),
-                      paste("P[C_(t-",nbStepsBack:1,")|x_1:(t-",nbStepsBack:1,")]",sep=""))
+
+        if (nbStepsBack>1){
+            colNames <- c("1",
+                          paste("x_(t-",nbStepsBack:1,")",sep=""),
+                          paste("P[C_(t-",nbStepsBack:1,")|x_1:(t-",nbStepsBack:1,")]",sep=""))
+        } else {
+            colNames <- c("1",
+                          "x_(t-1)",
+                          "P[C_(t-1)|x_1:(t-1)]")
+        }
 
         #Generate the palette for the matrix and the legend.  Generate labels for the legend
         palmat <- "#ffffff"
@@ -1315,6 +1367,33 @@ Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type="HMM", mu,
         }
     } else if (type=="HHMM"){
 
+    }
+
+    # ————————————————————————————————————————————————————————
+    print("mllk, AIC, BIC")
+
+    rowNames <- c("Results")
+    colNames <- c("mllk", "AIC", "BIC")
+
+    #Set up the plot area and plot the matrix
+    par(mar=c(16, 60, 16, 60))
+
+    likelihood.values <- matrix(c(optimResults$mllk, optimResults$AIC, optimResults$BIC),nrow=1)
+
+    color2D.matplot(likelihood.values,cellcolors="#ffffff",
+                    main="Parameters",
+                    cex.main=title.size,
+                    show.values=3,
+                    vcol=rgb(0,0,0),
+                    axes=FALSE,
+                    vcex=cex.lab, xlab="", ylab="")
+
+    # ROW LABELS
+    axis(2, at=0.5, labels=rowNames, padj=0.5,line = 4, las=0, tick=F,cex.axis=cex.lab)
+
+    # COLUMN LABELS
+    for (i in 1:3){
+        axis(1, at=i-0.5, labels=colNames[i], padj=0.5,line = 2, las=0, tick=F,cex.axis=cex.lab)
     }
 
     # ————————————————————————————————————————————————————————
