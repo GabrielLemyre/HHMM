@@ -11,9 +11,6 @@
 # First version : November 13th, 2019
 # Last version  : November 13th, 2019
 # ----------------------------------------------------------------------------------------------------
-#set working directory
-path <- '~/Documents/GitHub/HHMM'
-setwd(path.expand(path)) # Setting path
 
 #load numDeriv package for computing numerical derivatives
 #enables the use of functions grad and hessian
@@ -37,3 +34,18 @@ library(gridExtra)
 library(grid)
 # install.packages('plotrix') # add tables in plots
 library(plotrix)
+
+# -------------------------------------------------------
+# Sourcing private libraries
+# set Sourcing directory
+path <- '~/Documents/GitHub/R-Tools'
+setwd(path.expand(path)) # Setting Sourcing path
+
+
+# -------------------------------------------------------
+# 
+# -------------------------------------------------------
+# set working directory
+path <- '~/Documents/GitHub/HHMM'
+setwd(path.expand(path)) # Setting path
+
