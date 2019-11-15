@@ -21,7 +21,7 @@ setwd(path.expand(path)) # Setting path
 source("R/HMM.R")
 
 index <- "SPXIndex"
-start.date <- as.Date("2018-01-01")
+start.date <- as.Date("2005-01-01")
 end.date   <- as.Date("2019-12-30")
 
 frequency <- 5
@@ -37,7 +37,7 @@ Data <- read.csv("1 - Data/Table_Daily.csv") # MATLAB
 head(Data)
 data.freq <- "daily"
 
-
+# no factors in a data.frame : stringsAsFactors=F
 
 # ————————————————————————————————————————————————————————————————————————————————————
 # ////////////////////////////////////////////////////////////////////

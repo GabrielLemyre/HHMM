@@ -9,7 +9,7 @@
 # Maciej AUGUSTYNIAK
 # ----------------------------------------------------------------------------------------------------
 # Last version : april 15th, 2019
-# Last version : may 8th, 2019
+# Last version : november 14th, 2019
 # ----------------------------------------------------------------------------------------------------
 #set working directory
 path <- '~/Documents/GitHub/HHMM'
@@ -38,202 +38,31 @@ library(grid)
 # install.packages('plotrix') # add tables in plots
 library(plotrix)
 
-# ——————————————————————————————————————————————————————————————————————————
-# FONCTION PERMETTANT D'IMPRIMER LE RÉSULTATS EN FORMAT LATEX
-# ——————————————————————————————————————————————————————————————————————————
-Make.LaTeX.Table = function(R.Matrix.Object,
-                            caption=TRUE,
-                            title = "",
-                            Col.Titles = NULL,
-                            Row.Titles = NULL,
-                            n.dec = 3,
-                            type = "Table",
-                            Row.Pos="c",
-                            Cross.Lines=FALSE,
-                            print.Cons=TRUE,
-                            copy.CB=TRUE,...){ # Ecrit le code LaTeX dun environnement Tabular a partir dune matrice R
+# -------------------------------------------------------
+# 
+# 
+# -------------------------------------------------------
+# Sourcing private libraries
+# set Sourcing directory
+# -------------------------------------------------------
 
-    n.col = max(ncol(R.Matrix.Object),1)
-    n.Row = max(nrow(R.Matrix.Object),length(R.Matrix.Object))
+path <- '~/Documents/GitHub/R-Tools'
+setwd(path.expand(path)) # Setting Sourcing path
+source("LaTeXTable.R")
+source("RunTime.R")
+source("BasicFunctions.R")
 
-    Row.Titles.Ind = FALSE
-    Col.Titles.Ind = FALSE
-    if(!is.null(Row.Titles)){Row.Titles.Ind = TRUE}
-    if(!is.null(Col.Titles)){Col.Titles.Ind = TRUE}
-    if((Row.Titles.Ind | Cross.Lines)  & !(n.Row==1)){
-        pos.col = "r |"
-        nb.col.pos = n.col
-        if(Cross.Lines & !Row.Titles.Ind){
-            nb.col.pos = nb.col.pos - 1
-        }
-    }else{
-        pos.col=""
-        nb.col.pos = n.col
-    }
+# -------------------------------------------------------
+# 
+# 
+# -------------------------------------------------------
+# set working directory
+# -------------------------------------------------------
 
-    pos.col = paste(pos.col," ",chr(42),'{',nb.col.pos,"}","{",Row.Pos,"} ",sep="")
+path <- '~/Documents/GitHub/HHMM'
+setwd(path.expand(path)) # Setting path
 
-    str = paste("% ------------------------ \n",
-                chr(92),"begin{minipage}{",
-                chr(92),"linewidth} \n",
-                chr(92),"centering",
-                if(caption){paste(chr(92),"captionof{table}{",title,"} \n",sep="")},
-                chr(92),"label{",title,"} \n",
-                chr(92),"begin{tabular}[t]{",pos.col,"} \n",sep="")
-
-    Print.Nth.Element = function(Element,String,Col,last=FALSE){
-        if (is.numeric(Element)){
-            String=paste(String," $",round(Element,n.dec),"$ ",if(!last){chr(38)}else{""},sep="")
-        }else{
-            String=paste(String," ",Element," ",if(!last){chr(38)}else{""},sep="")
-        }
-        Print.Nth.Element = String # Returns the input string modified
-    }
-
-    if (Col.Titles.Ind){
-        lenoff = length(Col.Titles)
-        if (Row.Titles.Ind){
-            if (length(Col.Titles) == n.col){
-                Col.Titles = append(Col.Titles,"",after=0)
-            }
-        }
-        for (i in 1:(lenoff-1)){
-            str = paste(str,Col.Titles[i],chr(38))
-        }
-        str = paste(str," ",Col.Titles[lenoff]," ", chr(92),chr(92),"\n ", chr(92),"hline \n", sep="")
-    }
-
-    for (i in 1:n.Row){
-        if (!is.null(Row.Titles[i])){ # Adds the Row titles if there are any
-            str = paste(str,Row.Titles[i],chr(38)) # Adds the ith one
-        }
-
-        if (n.col!=1){ # If there is more than one Column
-            for (k in 1:n.col){ # Does all the Columns and doesnt add & on the last one
-                str = Print.Nth.Element(R.Matrix.Object[i,k],str,k,last=isTRUE(k==n.col))
-            }
-        } else {
-            str = Print.Nth.Element(R.Matrix.Object[i],str,n.col,last=TRUE) # If one Column only, does that one only
-        }
-        str=paste(str," ",chr(92),chr(92),sep="") # Adds the double backslash at the end of the line
-        if(!(i==n.Row)){str=paste(str,"\n",sep="")} # If it is the last line, it wont add line jump
-        if (i==1){ # If the first line was already printed
-            if (Cross.Lines & !Col.Titles.Ind & !(n.Row==1)){ # If the line is to be printed but no col.titles giving expressively
-                str = paste(str, chr(92),"hline \n", sep="")
-            }
-        }
-    }
-
-
-
-    # Fin de lexecution et retour du resultat
-    if(copy.CB){
-        Copie.Presse.Papier(paste(str,"\n",
-                                  chr(92),"end{tabular} \n",
-                                  chr(92),"end{minipage}","\n ~",chr(92),chr(92),
-                                  "\n % ------------------------ \n",sep="")) # Copie le string concatene au presse-papier
-    }
-
-    if(print.Cons){
-        str=cat(paste(str,"\n",
-                      chr(92),"end{tabular} \n",
-                      chr(92),"end{minipage}","\n ~",chr(92),chr(92),
-                      "\n % ------------------------ \n",sep="")) # Limprime aussi dans la console R
-    }
-}
-
-chr <- function(n) { rawToChar(as.raw(n)) }
-
-Copie.Presse.Papier <- function(string) {
-    os <- Sys.info()[['sysname']]
-    if (os == "Windows") { # Si systeme dexploitation windows
-        return(utils::writeClipboard(string))
-    } else if (os == "Darwin") { # Si systeme dexploitation iOS
-        Mac.Copie.Presse.Papier <- function(string){
-            presse.papier <- pipe("pbcopy", "w")
-            cat(string, file = presse.papier, sep = "\n")
-            close(presse.papier)	# Fermer lobjet presse-papier
-        }
-        return(Mac.Copie.Presse.Papier(string))
-    }
-}
-
-# ——————————————————————————————————————————————————————————————————————————
-# Rounding with n zeros function <- Returns a string and not a numeric type
-# ——————————————————————————————————————————————————————————————————————————
-s <- function(x,n){
-    sprintf(paste("%.",n,"f",sep=""), round(x,n))
-}
-
-# ——————————————————————————————————————————————————————————————————————————
-# GETTING COLUMNWISE MAXIMUM
-# ——————————————————————————————————————————————————————————————————————————
-colMax <- function(data){
-    apply(data,2, which.max)
-}
-
-# ——————————————————————————————————————————————————————————————————————————
-# GETTING TIME IN THE RIGHT FORMAT SEPERATED FROM HOURS, MINUTES AND SECONDS
-# ——————————————————————————————————————————————————————————————————————————
-get.Sys.Time <- function(){
-    actual.Time <- Sys.time()
-    H <- start_time.H <- as.numeric(format(actual.Time, "%H"))
-    M <- start_time.M <- as.numeric(format(actual.Time, "%M"))
-    S <- start_time.S <- as.numeric(format(actual.Time, "%S"))
-
-    return(list(H=H,
-                M=M,
-                S=S))
-}
-
-get.Time.Diff <- function(start,end){
-
-    # start.sec <- 3600*start$H + 60*start$M + start$S
-    # end.sec <- 3600*end$H + 60*end$M + end$S
-
-    # sec.diff <- end.sec - start.sec
-    sec.diff <- end - start
-    print(sec.diff)
-
-    Hours <- (sec.diff - sec.diff %% 3600)/3600
-    rem.Time <- sec.diff %% 3600
-
-    Minutes <- (rem.Time - rem.Time %% 60)/60
-    rem.Time <- rem.Time %% 60
-
-    Seconds <- rem.Time - rem.Time %% 1
-    rem.Time <- rem.Time %% 1
-
-    MilliSeconds <- round(rem.Time*1000)
-
-    timeSpent.String <- ""
-    if (Hours>0){
-        timeSpent.String <- paste(timeSpent.String,Hours,"hour")
-        if (Hours>1){
-            timeSpent.String <- paste(timeSpent.String,"s",sep="")
-        }
-    }
-    if (Minutes>0){
-        timeSpent.String <- paste(timeSpent.String,Minutes,"minute")
-        if (Minutes>1){
-            timeSpent.String <- paste(timeSpent.String,"s",sep="")
-        }
-    }
-    if (Seconds>0){
-        timeSpent.String <- paste(timeSpent.String,Seconds,"second")
-        if (Seconds>1){
-            timeSpent.String <- paste(timeSpent.String,"s",sep="")
-        }
-    }
-    if (MilliSeconds>0){
-        timeSpent.String <- paste(timeSpent.String,MilliSeconds,"millisecond")
-        if (MilliSeconds>1){
-            timeSpent.String <- paste(timeSpent.String,"s",sep="")
-        }
-    }
-
-    return(timeSpent.String)
-}
+# -------------------------------------------------------
 
 # ————————————————————————————————————————————————————————————————————————————————————
 # ////////////////////////////////////////////////////////////////////
