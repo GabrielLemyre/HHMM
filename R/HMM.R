@@ -1048,6 +1048,7 @@ Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type, mu,
     # Getting the state with the maximum probability
     max.Prob.States <- colMax(state.Probs)
 
+    # JPEG DIMENSIONS FOR OUTPUTED FILE
     image.width <- 7000
     image.heigth <- 3000
 

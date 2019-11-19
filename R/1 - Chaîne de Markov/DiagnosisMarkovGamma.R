@@ -66,58 +66,182 @@ setwd(path.expand(path)) # Setting path
 #
 # -------------------------------------------------------
 
-Diagnosis <- function(gamma, additional.info=NULL){
+Diagnosis <- function(gamma, additional.info=NULL, plotName=NULL){
 	custom.Colors.vec <- matrix(c("firebrick3","blue4",NA,NA,
 								  "firebrick3","deepskyblue1","blue4",NA,
 								  "firebrick3","darksalmon","deepskyblue1","blue4"),ncol=4,byrow=T)
-	
-	links <- data.frame(matrix(0,nrow=sum(gamma>0),ncol=5))
-	names(links) <- c("Source","Target","weight","edge.color","edge.loop.angle")
 	
 	t <- 1 # Initial entry row number
 	n <- dim(gamma)[1]
 	# print(paste("Gamma dimension :",n,sep=" "))
 	
-	# Getting links and their weights
-	for (i in 1:n){
-		for (j in 1:n){
-			if (gamma[i,j]>0){
-				links[t,] <- c(i,j,gamma[i,j], custom.Colors.vec[(n-1),i],
-							   if(i==j){-(i-1)*pi/(n/2)}else{0} # Rotation de la boucle de -2pi/n radian
-							   )
-				t <- t+1
-			}
-		}
+	temp.eigen <- eigen(gamma)
+	print(temp.eigen)
+	
+	eigen.values <- temp.eigen$values
+	eigen.vectors <- temp.eigen$vectors
+	eigen.vectors.INV <- solve(eigen.vectors)
+	
+	# print(eigen.vectors%*%diag(eigen.values)%*%eigen.vectors.INV)
+	# print(eigen.vectors%*%eigen.vectors.INV)
+	# print(eigen.vectors[,1]*eigen.vectors.INV[1,])
+	# print(gamma%*%eigen.vectors)
+	# print(eigen.vectors%*%diag(eigen.values))
+	
+	# TESTING FOR PI
+	# print(eigen.vectors%*%diag(c(1,rep(0,n-1)))%*%eigen.vectors.INV)
+	
+	# STATIONNARY DISTRIBUTION COMPUTATION
+	vec.unitaire <- rep(1,n)
+	dist.asympt <- t(vec.unitaire)%*%solve(diag(n)-gamma+vec.unitaire%*%t(vec.unitaire))
+	
+	# Graphical options
+	title.size <- 6
+	cex.lab <- 7.5
+	image.width <- 5000
+	image.heigth <- 1000
+	
+	if (is.null(plotName)){
+		name <- paste("test",Sys.time(),sep="_")
+	}else{
+		name <- PlotName
 	}
+	jpeg(paste(path,'/2 - Graphiques/',name,".jpg",sep=""), width = image.width, height = image.heigth)
+	layout(mat = matrix(c(1,2,3,4,5,6,7),ncol=7,nrow = 1),
+		   widths = c(5, 0.5, 5, 0.5, 5, 0.5, 5),
+		   height = 5*rep(1,7))
 	
-	links[,c(1:3,5)] <- sapply(links[,c(1:3,5)], as.numeric)
+	# GAMMA
+	par(mar=c(5,5,5,5))
+	color2D.matplot(gamma,cellcolors="#ffffff",
+					main="Matrice de transition",
+					cex.main=title.size,
+					show.values=3,
+					vcol=rgb(0,0,0),
+					axes=FALSE,
+					vcex=cex.lab, xlab="", ylab="")
 	
-	# Building the network
-	network <- graph_from_data_frame(d=links, vertices=1:n, directed=T)
-	print(E(network)$edge.color)
-	V(network)$size <- colSums(gamma)/sum(colSums(gamma))*100
-	E(network)$width <- E(network)$weight*10
+	# EQUAL SIGN
+	par(mar = c(0,0,0,0))
 	
-	# ceb <- cluster_edge_betweenness(network) 
+		# ann - Display Annotoations (set to FALSE)
+		# bty - Border Type (none)
+		# type - Plot Type (one that produces no points or lines)
+		# xaxt - x axis type (none)
+		# yaxt - y axis type (none)
+		plot(c(0, 1), c(0, 1), ann = F, bty = 'n', type = 'n', xaxt = 'n', yaxt = 'n')
+		text(x = 0.5, y = 0.5, paste("="), 
+			 cex = 15, col = "black")
+		
+		par(mar=c(5,5,5,5))
+		
+	# RIGHT EIGEN VECTORS
+	color2D.matplot(eigen.vectors,cellcolors="#ffffff",
+					main="Vecteurs propres droits",
+					cex.main=title.size,
+					show.values=3,
+					vcol=rgb(0,0,0),
+					axes=FALSE,
+					vcex=cex.lab, xlab="", ylab="")
 	
-	# Plotting the network
-	plot(network, 
-		 edge.arrow.size=.4,
-		 edge.curved=seq(-0.5, 0.5, 
-		 				length = ecount(network)), 
-		 edge.color=E(network)$edge.color,
-		 vertex.color=custom.Colors.vec[(n-1),],
-		 vertex.label.color="white",
-		 layout=layout.circle, 
-		 edge.loop.angle = E(network)$edge.loop.angle
-		 )
+	# MULTIPLY SIGN
+	par(mar = c(0,0,0,0))
+	
+	# ann - Display Annotoations (set to FALSE)
+	# bty - Border Type (none)
+	# type - Plot Type (one that produces no points or lines)
+	# xaxt - x axis type (none)
+	# yaxt - y axis type (none)
+	plot(c(0, 1), c(0, 1), ann = F, bty = 'n', type = 'n', xaxt = 'n', yaxt = 'n')
+	text(x = 0.5, y = 0.5, "X", 
+		 cex = 15, col = "black")
+	
+	par(mar=c(5,5,5,5))
+	
+	# EIGEN VALUES ON DIAGONAL
+	color2D.matplot(diag(eigen.values),cellcolors="#ffffff",
+					main="Valeurs propres",
+					cex.main=title.size,
+					show.values=3,
+					vcol=rgb(0,0,0),
+					axes=FALSE,
+					vcex=cex.lab, xlab="", ylab="")
+	
+	# MULTIPLY SIGN
+	par(mar = c(0,0,0,0))
+	
+	# ann - Display Annotoations (set to FALSE)
+	# bty - Border Type (none)
+	# type - Plot Type (one that produces no points or lines)
+	# xaxt - x axis type (none)
+	# yaxt - y axis type (none)
+	plot(c(0, 1), c(0, 1), ann = F, bty = 'n', type = 'n', xaxt = 'n', yaxt = 'n')
+	text(x = 0.5, y = 0.5, "X", 
+		 cex = 15, col = "black")
+	
+	par(mar=c(5,5,5,5))
+	
+	# LEFT EIGEN VECTORS
+	color2D.matplot(eigen.vectors.INV,cellcolors="#ffffff",
+					main="Vecteurs propres gauches",
+					cex.main=title.size,
+					show.values=3,
+					vcol=rgb(0,0,0),
+					axes=FALSE,
+					vcex=cex.lab, xlab="", ylab="")
+	
+	# Closing the plot
+	dev.off()
+	
+	
+	# layout(mat = matrix(c(1),ncol=5,nrow = 1))
+	# 
+	# links <- data.frame(matrix(0,nrow=sum(gamma>0),ncol=5))
+	# names(links) <- c("Source","Target","weight","edge.color","edge.loop.angle")
+	# 
+	# # Getting links and their weights
+	# for (i in 1:n){
+	# 	for (j in 1:n){
+	# 		if (gamma[i,j]>0){
+	# 			links[t,] <- c(i,j,gamma[i,j], custom.Colors.vec[(n-1),i],
+	# 						   if(i==j){-(i-1)*pi/(n/2)}else{0} # Rotation de la boucle de -2pi/n radian
+	# 						   )
+	# 			t <- t+1
+	# 		}
+	# 	}
+	# }
+	# 
+	# links[,c(1:3,5)] <- sapply(links[,c(1:3,5)], as.numeric)
+	# 
+	# # Building the network
+	# network <- graph_from_data_frame(d=links, vertices=1:n, directed=T)
+	# print(E(network)$edge.color)
+	# V(network)$size <- colSums(gamma)/sum(colSums(gamma))*100
+	# E(network)$width <- E(network)$weight*10
+	# 
+	# # ceb <- cluster_edge_betweenness(network) 
+	# 
+	# # Plotting the network
+	# plot(network, 
+	# 	 edge.arrow.size=.4,
+	# 	 edge.curved=seq(-0.5, 0.5, 
+	# 	 				length = ecount(network)), 
+	# 	 edge.color=E(network)$edge.color,
+	# 	 vertex.color=custom.Colors.vec[(n-1),],
+	# 	 vertex.label.color="white",
+	# 	 layout=layout.circle, 
+	# 	 edge.loop.angle = E(network)$edge.loop.angle
+	# 	 )
 	
 	# if(!is.null(additional.info)){
 	# 	add.info.string <- 
 	# 	legend(x=-1.5, y=-1.1, add.info.string)
 	# }
 	
-	return(net2)
+	return(list(eigen.values=eigen.values,
+				eigen.vectors=eigen.vectors,
+				eigen.vectors.INV=eigen.vectors.INV,
+				dist.asympt=dist.asympt))
 }
 
 
@@ -127,19 +251,24 @@ Diagnosis <- function(gamma, additional.info=NULL){
 mu.Test <- c(-0.4882, 0.0862, 0.0170, 0.1967)
 sigma.Test <- c(2.9746, 1.3410, 0.9686, 0.5169)
 
-Gamma.Test <- matrix(c(9.498620e-01, 5.013800e-02, 4.657267e-54, 2.447848e-30,
-					   8.677874e-34, 9.530261e-01, 4.697389e-02, 4.935129e-11,
-					   5.880273e-03, 3.434210e-30, 9.227759e-01, 7.134384e-02,
-					   1.556352e-13, 1.348732e-17, 3.212027e-02, 9.678797e-01), nrow=4, byrow=T)
+# Gamma.Test <- matrix(c(9.498620e-01, 5.013800e-02, 4.657267e-54, 2.447848e-30,
+# 					   8.677874e-34, 9.530261e-01, 4.697389e-02, 4.935129e-11,
+# 					   5.880273e-03, 3.434210e-30, 9.227759e-01, 7.134384e-02,
+# 					   1.556352e-13, 1.348732e-17, 3.212027e-02, 9.678797e-01), nrow=4, byrow=T)
 
-Gamma.Test <- matrix(c(0.9048, 0.0952, 0.0000000001,
-					 0.4122, 0.5485, 0.0393,
-					 0.0000000001, 0.0429, 0.9571),
-					 byrow=T,nrow=3)
+# Gamma.Test <- matrix(c(0.9048, 0.0952, 0.0000000001,
+# 					   0, 1, 0,
+# 					   0.0000000001, 0.0429, 0.9571),
+# 					 byrow=T,nrow=3)
 
-# Gamma.Test=matrix(c(0.98, 0.02,
-# 					 0.02, 0.98),
-# 					 byrow=T,nrow=2)
+# Gamma.Test <- matrix(c(2, 4, 3,
+# 					   -4, -6, -3,
+# 					   3, 3, 1),
+# 					 byrow=T,nrow=3)
+
+Gamma.Test=matrix(c(0.4, 0.6,
+					 0.02, 0.98),
+					 byrow=T,nrow=2)
 
 test <- Diagnosis(Gamma.Test, additional.info = rbind(mu.Test,sigma.Test))
 
