@@ -66,7 +66,13 @@ setwd(path.expand(path)) # Setting path
 #
 # -------------------------------------------------------
 
-Diagnosis <- function(gamma, additional.info=NULL, plotName=NULL){
+Diagnosis <- function(gamma, 
+					  additional.info=NULL, 
+					  plotName=NULL,
+					  special.Weights=NULL,
+					  network.print=FALSE){
+	
+	
 	custom.Colors.vec <- matrix(c("firebrick3","blue4",NA,NA,
 								  "firebrick3","deepskyblue1","blue4",NA,
 								  "firebrick3","darksalmon","deepskyblue1","blue4"),ncol=4,byrow=T)
@@ -236,54 +242,64 @@ Diagnosis <- function(gamma, additional.info=NULL, plotName=NULL){
 					axes=FALSE,
 					vcex=cex.lab, xlab="", ylab="")
 	
+	if (network.print){
+		
+		links <- data.frame(matrix(0,nrow=sum(gamma>0),ncol=5))
+		names(links) <- c("Source","Target","weight","edge.color","edge.loop.angle")
+		
+		# Getting links and their weights
+		for (i in 1:n){
+			for (j in 1:n){
+				if (gamma[i,j]>0){
+					links[t,] <- c(i,j,gamma[i,j], custom.Colors.vec[(n-1),i],
+								   if(i==j){-(i-1)*pi/(n/2)}else{0} # Rotation de la boucle de -2pi/n radian
+					)
+					t <- t+1
+				}
+			}
+		}
+		
+		links[,c(1:3,5)] <- sapply(links[,c(1:3,5)], as.numeric)
+		
+		# Building the network
+		network <- graph_from_data_frame(d=links, vertices=1:n, directed=T)
+		print(E(network)$weight)
+		
+		temp.weights <- gamma-diag(gamma)
+		temp.weights.normalized <- temp.weights/rowSums(temp.weights)+diag(gamma)
+		
+		if (!is.null(special.Weights)){
+			V(network)$size <- special.Weights/sum(special.Weights)*100
+		} else {
+			V(network)$size <- colSums(gamma)/sum(colSums(gamma))*100
+		}
+		
+		E(network)$width <- temp.weights.normalized*5
+		
+		# ceb <- cluster_edge_betweenness(network)
+		special.Weights
+		# Plotting the network
+		plot(network,
+			 edge.arrow.size=1,
+			 edge.curved=seq(0, 0.8,
+			 				length = ecount(network)),
+			 edge.color=E(network)$edge.color,
+			 vertex.color=custom.Colors.vec[(n-1),],
+			 vertex.label.color="white",
+			 vertex.label.cex=V(network)$size/10,
+			 layout=layout.circle,
+			 edge.loop.angle = E(network)$edge.loop.angle
+		)
+		
+		# if(!is.null(additional.info)){
+		# 	add.info.string <-
+		# 	legend(x=-1.5, y=-1.1, add.info.string)
+		# }
+	}
+	
 	
 	# Closing the plot
 	dev.off()
-	
-	
-	# layout(mat = matrix(c(1),ncol=5,nrow = 1))
-	# 
-	# links <- data.frame(matrix(0,nrow=sum(gamma>0),ncol=5))
-	# names(links) <- c("Source","Target","weight","edge.color","edge.loop.angle")
-	# 
-	# # Getting links and their weights
-	# for (i in 1:n){
-	# 	for (j in 1:n){
-	# 		if (gamma[i,j]>0){
-	# 			links[t,] <- c(i,j,gamma[i,j], custom.Colors.vec[(n-1),i],
-	# 						   if(i==j){-(i-1)*pi/(n/2)}else{0} # Rotation de la boucle de -2pi/n radian
-	# 						   )
-	# 			t <- t+1
-	# 		}
-	# 	}
-	# }
-	# 
-	# links[,c(1:3,5)] <- sapply(links[,c(1:3,5)], as.numeric)
-	# 
-	# # Building the network
-	# network <- graph_from_data_frame(d=links, vertices=1:n, directed=T)
-	# print(E(network)$edge.color)
-	# V(network)$size <- colSums(gamma)/sum(colSums(gamma))*100
-	# E(network)$width <- E(network)$weight*10
-	# 
-	# # ceb <- cluster_edge_betweenness(network) 
-	# 
-	# # Plotting the network
-	# plot(network, 
-	# 	 edge.arrow.size=.4,
-	# 	 edge.curved=seq(-0.5, 0.5, 
-	# 	 				length = ecount(network)), 
-	# 	 edge.color=E(network)$edge.color,
-	# 	 vertex.color=custom.Colors.vec[(n-1),],
-	# 	 vertex.label.color="white",
-	# 	 layout=layout.circle, 
-	# 	 edge.loop.angle = E(network)$edge.loop.angle
-	# 	 )
-	
-	# if(!is.null(additional.info)){
-	# 	add.info.string <- 
-	# 	legend(x=-1.5, y=-1.1, add.info.string)
-	# }
 	
 	return(list(eigen.values=eigen.values,
 				eigen.vectors.D=eigen.vectors.D,
@@ -317,5 +333,8 @@ Gamma.Test <- matrix(c(9.498620e-01, 5.013800e-02, 4.657267e-54, 2.447848e-30,
 # 					 0.02, 0.98),
 # 					 byrow=T,nrow=2)
 
-test <- Diagnosis(Gamma.Test, additional.info = rbind(mu.Test,sigma.Test))
+test <- Diagnosis(Gamma.Test, 
+				  additional.info = rbind(mu.Test,sigma.Test), 
+				  special.Weights=sigma.Test,
+				  network.print = 1)
 
