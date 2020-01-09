@@ -33,6 +33,9 @@ library(gridExtra)
 library(grid)
 # install.packages('plotrix') # add tables in plots
 library(plotrix)
+# install.packages('timeDate') # add tables in plots
+library(timeDate)
+
 
 # -------------------------------------------------------
 # 
@@ -499,10 +502,11 @@ normal.HMM.W2N = function(parvect, type, Transition.Type=NULL){
 # --------------------------------------------------------
 Gamma.Build = function(prob.i, type = NULL,
                        Transition.Type,
-                       nbStepsBack, data=NULL){
+                       nbStepsBack=0, 
+                       data=NULL){
 
     if (Transition.Type=="Homogeneous"){
-        if (type=="HHMM"){
+        if (type=="HHMM"){ # Récupération des paramètres pour HHMM
             a2.11 <- prob.i[1,1]
             a2.12 <- prob.i[1,2]
             e1 <- prob.i[1,3]
@@ -524,6 +528,7 @@ Gamma.Build = function(prob.i, type = NULL,
             pi.3 <- prob.i[8,1]
             pi.4 <- prob.i[8,2]
 
+            # Construction de la matrice de transition à partir de ces paramètres
             Gamma.Build = matrix(c(a2.11+e1*a1.11*pi.1,  a2.12+e1*a1.11*pi.2,          e1*a1.12*pi.3,        e1*a1.12*pi.4,
                                    a2.21+e2*a1.11*pi.1,  a2.22+e2*a1.11*pi.2,          e2*a1.12*pi.3,        e2*a1.12*pi.4,
                                    e3*a1.21*pi.1,        e3*a1.21*pi.2,          a2.33+e3*a1.22*pi.3,  a2.34+e3*a1.22*pi.4,
@@ -637,7 +642,7 @@ normal.HMM.HamiltonFilter = function(mu,
     nbRegime <- length(mu)
     n <- length(data)
 
-    # Verification that in the vent that transitions are non-homogeneous, the initial distribution
+    # Verification that in the event of non-homogeneous transitions, the initial distribution
     #  is correctly specified
     if (Transition.Type != "Homogeneous"){
         if (is.null(initial.Distribution)){

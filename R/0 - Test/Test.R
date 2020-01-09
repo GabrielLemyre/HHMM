@@ -57,7 +57,7 @@ data.Origin="R"
 # data.freq <- "daily"
 
 #load data
-Data <- read.csv("DATA_INDEX.csv")
+Data <- read.csv("1 - Data/DATA_INDEX.csv") # R
 head(Data)
 data.freq <- "daily"
 mult <- 100          #multiply all returns by -mult-
@@ -89,6 +89,15 @@ t_  <- 1900 + t_$year + (t_$yday+1)/n.days
 #as.POSIXlt("2012-01-01",format="%Y-%m-%d")$yday
 
 # no factors in a data.frame : stringsAsFactors=F
+
+#descriptive statistics
+des_stats <- c("Mean" = mean(logR),
+               "StDev" = sd(logR),
+               "Skewness" = timeDate::skewness(logR, method="moment"),
+               "Kurtosis" = timeDate::kurtosis(logR, method="moment"), "Minimum" = min(logR),
+               "Maximum" = max(logR), "n" = length(logR)
+)
+des_stats
 
 # ————————————————————————————————————————————————————————————————————————————————————
 # ////////////////////////////////////////////////////////////////////
