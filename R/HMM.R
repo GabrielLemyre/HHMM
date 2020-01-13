@@ -9,7 +9,7 @@
 # Maciej AUGUSTYNIAK
 # ----------------------------------------------------------------------------------------------------
 # Last version : april 15th, 2019
-# Last version : january 7th, 2020
+# Last version : january 13th, 2020
 # ----------------------------------------------------------------------------------------------------
 
 #load numDeriv package for computing numerical derivatives
@@ -287,8 +287,23 @@ HMM.Train = function(index,
                                         initial.Distribution=initial.Distribution)
 
     print("Post Kim")
+    
     # --------------------------------------------
-
+    # CREATING NEW FOLDER TO ADD THE GRAPHS
+    # --------------------------------------------
+    newFolderPlot <- paste(path,PlotName,sep="/")
+    
+    # Testing if file exists
+    if(!file.exists(newFolderPlot)){
+        dir.create(newFolderPlot) 
+    }
+    
+    path <- newFolderPlot
+    
+    
+    # --------------------------------------------
+    # CREATING THE GRID PLOT
+    # --------------------------------------------
     Grid.Plot.HMM.Full(timeseries=logR,
                        dates=dates,
                        state.Probs=smooth.Prob$p.ct.x1T,
@@ -306,7 +321,23 @@ HMM.Train = function(index,
                        optimResults=HMM.Train,
                        diag.pers.Gamma=smooth.Prob$pers.Gamma,
                        Time.String=paste("Time for full estimation :",timeSpent.String,sep=""))
-
+    
+    
+    # --------------------------------------------
+    # CREATING THE DIAGNOSIS PLOT
+    # --------------------------------------------
+    DiagnosisPlotName <- paste(PlotName,"Diagnosis",sep="_")
+    Diagnosis(gamma=HMM.Train$Gamma, 
+              # additional.info = rbind(HMM.Train$mu,HMM.Train$sigma), 
+              # special.Weights=HMM.Train$sigma,
+              # network.print = FALSE,
+              plotName=DiagnosisPlotName,
+              docPath=path)
+    
+    
+    # --------------------------------------------
+    # RETURNING RESULTS TO THE FUNCTION NAME
+    # --------------------------------------------
     return(list(HMM.Train=HMM.Train,
                 smooth.Prob=smooth.Prob$p.ct.x1T,
                 filtered.Prob=smooth.Prob$p.ct.x1t,
@@ -315,6 +346,339 @@ HMM.Train = function(index,
                 timeSpent.String=timeSpent.String))
 
 }
+
+
+# ------------------------------------------------------------------------------------
+# ////////////////////////////////////////////////////////////////////
+# DIAGNOSTIQUE ET MANIPULATION CHAINES DE MARKOV
+# \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+# ------------------------------------------------------------------------------------
+
+# --------------------------------------------------------
+# DIAGNOSTIQUE SUR LA MATRICE DE TRANSITION
+# --------------------------------------------------------
+# Fonction qui retourne plusieurs quantités d'intérêt
+#   Retourne les valeurs et vecteurs propres, la distribution
+#   stationnaire ainsi qu'une vsualisation de toutes ces 
+#   quantité en format jpg
+# --------------------------------------------------------
+Diagnosis <- function(gamma,                # Transition matrix
+                      plotName=NULL,        # Name to give the plot, if absent it's replace by test and the date/time
+                      special.Weights=NULL, # Used to define thickness of lines in network
+                      network.print=FALSE,  # TODO : Should the network be printed 
+                      docPath=NULL,            # Path to where the output should be saved
+                      additional.info=NULL){# TODO : make it possible to add the parameters on the graph       
+    
+    
+    custom.Colors.vec <- matrix(c("firebrick3","blue4",NA,NA,
+                                  "firebrick3","deepskyblue1","blue4",NA,
+                                  "firebrick3","darksalmon","deepskyblue1","blue4"),ncol=4,byrow=T)
+    
+    t <- 1 # Initial entry row number
+    n <- dim(gamma)[1]
+    # print(paste("Gamma dimension :",n,sep=" "))
+    
+    temp.eigen <- eigen(gamma)
+    # print(temp.eigen)
+    
+    eigen.values <- temp.eigen$values
+    eigen.vectors.D <- temp.eigen$vectors
+    eigen.vectors.G <- solve(eigen.vectors.D)
+    
+    # -------------------------------------
+    # -------------------------------------
+    # -------------------------------------
+    # Temps de séjour dans un état TODO
+    # -------------------------------------
+    # -------------------------------------
+    # -------------------------------------
+    
+    # print(eigen.vectors.D%*%diag(eigen.values)%*%eigen.vectors.G)
+    # print(eigen.vectors.D%*%eigen.vectors.G)
+    # print(eigen.vectors.D[,1]*eigen.vectors.G[1,])
+    # print(gamma%*%eigen.vectors.D)
+    # print(eigen.vectors.D%*%diag(eigen.values))
+    
+    # TESTING FOR PI
+    # print(eigen.vectors.D %*% diag(c(1,rep(0,n-1))) %*% eigen.vectors.G)
+    
+    # STATIONNARY DISTRIBUTION COMPUTATION
+    vec.unitaire <- rep(1,n)
+    dist.asympt <- t(vec.unitaire)%*%solve(diag(n)-gamma+vec.unitaire%*%t(vec.unitaire))
+    # print(dist.asympt)
+    
+    
+    # -------------------------------------------------------
+    # GRAPHICAL PRESENTATION
+    # Creating the output file and arranging the graphs
+    # -------------------------------------------------------
+    
+    # Graphical options
+    title.size <- 6
+    cex.lab <- 7.5
+    image.width <- 5000
+    image.heigth <- 1000*5/3
+    
+    # Construction du nom du fichier exporté
+    if (is.null(plotName)){
+        name <- paste("test",Sys.time(),sep="_")
+    }else{
+        name <- plotName
+    }
+    
+    # Création de l'image en format jpg et spécification de son emplacement
+    FilePathName <- paste(docPath,'/',name,".jpg",sep="")
+    jpeg(FilePathName, width = image.width, height = image.heigth)
+    
+    layout(mat = matrix(c(seq(from=1,to=7,by=1),seq(from=15,to=21,by=1),12,10,8,11,9,13,14),ncol=7,nrow = 3,byrow=T),
+           widths = c(5, 0.5, 5, 0.5, 5, 0.5, 5),
+           height = matrix(c(5*rep(1,7),5/3*rep(1,7),5/3*rep(1,7)),ncol=7,nrow = 3,byrow=T))
+    
+    # GAMMA
+    par(mar=c(5,5,5,5))
+    color2D.matplot(gamma,cellcolors="#ffffff",
+                    main="Matrice de transition",
+                    cex.main=title.size,
+                    show.values=3,
+                    vcol=rgb(0,0,0),
+                    axes=FALSE,
+                    vcex=cex.lab, xlab="", ylab="")
+    
+    # EQUAL SIGN
+    par(mar = c(0,0,0,0))
+    
+    # ann - Display Annotoations (set to FALSE)
+    # bty - Border Type (none)
+    # type - Plot Type (one that produces no points or lines)
+    # xaxt - x axis type (none)
+    # yaxt - y axis type (none)
+    plot(c(0, 1), c(0, 1), ann = F, bty = 'n', type = 'n', xaxt = 'n', yaxt = 'n')
+    text(x = 0.5, y = 0.5, paste("="), 
+         cex = 15, col = "black")
+    
+    
+    # RIGHT EIGEN VECTORS
+    par(mar=c(5,5,5,5))
+    
+    cellcol<-matrix(rep("#ffffff",n^2),nrow=n)
+    cellcol[,1]<-rep("#c5e1a5",n)
+    
+    color2D.matplot(eigen.vectors.D,cellcolors=cellcol,
+                    main="Vecteurs propres droits",
+                    cex.main=title.size,
+                    show.values=3,
+                    vcol=rgb(0,0,0),
+                    axes=FALSE,
+                    vcex=cex.lab, xlab="", ylab="")
+    
+    # MULTIPLY SIGN
+    par(mar = c(0,0,0,0))
+    
+    # ann - Display Annotoations (set to FALSE)
+    # bty - Border Type (none)
+    # type - Plot Type (one that produces no points or lines)
+    # xaxt - x axis type (none)
+    # yaxt - y axis type (none)
+    plot(c(0, 1), c(0, 1), ann = F, bty = 'n', type = 'n', xaxt = 'n', yaxt = 'n')
+    text(x = 0.5, y = 0.5, "X", 
+         cex = 15, col = "black")
+    
+    
+    # EIGEN VALUES ON DIAGONAL
+    par(mar=c(5,5,5,5))
+    
+    cellcol<-matrix(rep("#ffffff",n^2),nrow=n)
+    diag(cellcol)<-c("#fff59D","#81d4fa",rep("#ffffff",(n-2)))
+    
+    color2D.matplot(diag(eigen.values),cellcolors=cellcol,
+                    main="Valeurs propres",
+                    cex.main=title.size,
+                    show.values=3,
+                    vcol=rgb(0,0,0),
+                    axes=FALSE,
+                    vcex=cex.lab, xlab="", ylab="")
+    
+    # MULTIPLY SIGN
+    par(mar = c(0,0,0,0))
+    
+    # ann - Display Annotoations (set to FALSE)
+    # bty - Border Type (none)
+    # type - Plot Type (one that produces no points or lines)
+    # xaxt - x axis type (none)
+    # yaxt - y axis type (none)
+    plot(c(0, 1), c(0, 1), ann = F, bty = 'n', type = 'n', xaxt = 'n', yaxt = 'n')
+    text(x = 0.5, y = 0.5, "X", 
+         cex = 15, col = "black")
+    
+    # LEFT EIGEN VECTORS
+    par(mar=c(5,5,5,5))
+    
+    cellcol<-matrix(rep("#ffffff",n^2),nrow=n)
+    cellcol[1,]<-rep("#fff59D",n)
+    
+    color2D.matplot(eigen.vectors.G,
+                    main="Vecteurs propres gauches",
+                    cex.main=title.size,
+                    cellcolors=cellcol,
+                    show.values=3,
+                    vcol=rgb(0,0,0),
+                    axes=FALSE,
+                    vcex=cex.lab, xlab="", ylab="")
+    
+    # DISTRIBUTION STATIONNAIRE
+    par(mar=c(5,5,5,5))
+    
+    color2D.matplot(dist.asympt,
+                    main="Distribution Asymptotique",
+                    cex.main=title.size,
+                    cellcolors=rep("#ffffff",n),
+                    show.values=3,
+                    vcol=rgb(0,0,0),
+                    axes=FALSE,
+                    vcex=cex.lab, xlab="", ylab="")
+    
+    # TEMPS MOYEN DANS L'ÉTAT
+    par(mar=c(5,5,5,5))
+    
+    color2D.matplot(1/dist.asympt,
+                    main="E[ Temps de retour i | Départ en i ]",
+                    cex.main=title.size,
+                    cellcolors=rep("#ffffff",n),
+                    show.values=3,
+                    vcol=rgb(0,0,0),
+                    axes=FALSE,
+                    vcex=cex.lab, xlab="", ylab="")
+    
+    if (network.print){ # TODO : Add the space to accomodate the network
+        
+        links <- data.frame(matrix(0,nrow=sum(gamma>0),ncol=5))
+        names(links) <- c("Source","Target","weight","edge.color","edge.loop.angle")
+        
+        # Getting links and their weights
+        for (i in 1:n){
+            for (j in 1:n){
+                if (gamma[i,j]>0){
+                    links[t,] <- c(i,j,gamma[i,j], custom.Colors.vec[(n-1),i],
+                                   if(i==j){-(i-1)*pi/(n/2)}else{0} # Rotation de la boucle de -2pi/n radian
+                    )
+                    t <- t+1
+                }
+            }
+        }
+        
+        links[,c(1:3,5)] <- sapply(links[,c(1:3,5)], as.numeric)
+        
+        # Building the network
+        network <- graph_from_data_frame(d=links, vertices=1:n, directed=T)
+        # print(E(network)$weight)
+        
+        temp.weights <- gamma-diag(gamma)
+        temp.weights.normalized <- temp.weights/rowSums(temp.weights)+diag(gamma)
+        
+        if (!is.null(special.Weights)){
+            print(V(network))
+            Vertex.size <- special.Weights/sum(special.Weights)*100
+        } else {
+            Vertex.size <- colSums(gamma)/sum(colSums(gamma))*100
+        }
+        
+        E(network)$width <- temp.weights.normalized*5
+        
+        # ceb <- cluster_edge_betweenness(network)
+        
+        # Plotting the network
+        plot(network,
+             edge.arrow.size=1,
+             edge.curved=seq(0, 0.8,
+                             length = ecount(network)),
+             edge.color=E(network)$edge.color,
+             vertex.color=custom.Colors.vec[(n-1),],
+             vertex.label.color="white",
+             vertex.label.cex=Vertex.size/10,
+             layout=layout.circle,
+             edge.loop.angle = E(network)$edge.loop.angle
+        )
+    }
+    
+    
+    # Closing the plot
+    dev.off()
+    
+    cat("Image was saved as ",FilePathName,sep="")
+    
+    return(list(eigen.values=eigen.values,
+                eigen.vectors.D=eigen.vectors.D,
+                eigen.vectors.G=eigen.vectors.G,
+                dist.asympt=dist.asympt))
+}
+
+
+
+# --------------------------------------------------------
+# MOMENTS DE LA CHAÎNE DE MARKOV
+# --------------------------------------------------------
+# Fonction pour calculer les moments des v.a. de la chaîne de Markov
+#     Calcul de l'espérance, de l'autocovariance et autocorrélation 
+#     de chaîne homogène/stationnaire ou non.
+# --------------------------------------------------------
+MomentsMC = function(Gamma,                         # Matrice de transition de la chaîne de Markov
+                     initial.Distribution=NULL,     # Distribution initiale de la MC. Si absente, utilisation de la dist asymptotique
+                     Transition.Type="Homogeneous", # Type de transition
+                     Data=NULL,                     # Si transition non-homogène, nécessaire pour construire matrice de transition
+                     nbStepsEsp=100,                # Nombre de pas en avant pour calcul de l'espérance dans la MC
+                     nbStepsACF=20){                # Nombre de pas pour le calcul de Cov[C_t, C_(t+k)]
+    
+    K <- dim(Gamma)[1] # Dimension de l'espace d'état
+    
+    upsilon <- 1:K
+    Upsilon <- diag(upsilon)
+    
+    vecUn <- rep(1,K)
+    
+    if (Transition.Type=="Homogeneous"){
+        distribution.Distribution <- vecUn%*%solve(diag(K)-Gamma+(vecUn%*%t(vecUn))) 
+        
+        if(is.null(initial.Distribution)){
+            
+            # Utilisation de la distribution stationnaire comme distribution initiale
+            initial.Distribution <- distribution.Distribution
+            
+            if (nbStepsEsp>1){
+                cat("Avertissement : \n",
+                    "  Puisque la distribution stationnaire est utilisée comme \n",
+                    "  distribution initiale et puisque celle-ci multipliée par \n",
+                    "  la matrice de transition donne elle même, l'espérance de \n",
+                    "  chaque pas est la même et ne sera donc calculée qu'une fois.\n",
+                    "  Ainsi la variable 'nbStepsEsp=",nbStepsEsp,"' est remplacée par 1.\n",sep="")
+                
+                nbStepsEsp <- 1
+            }
+        }
+    }
+    
+    Esperance.Ct <- rep(NA,nbStepsEsp) # Initialisation du vecteur des espérances
+    ACF.Ct <- rep(NA,nbStepsACF) # Initialisation du vecteur des espérances
+    Gamma.m.step <- diag(K) # Matrice identité pour premier pas
+    
+    for (i in 1:max(nbStepsEsp,nbStepsACF)){
+        # E[Ct] = u(1) %*% Gamma^(t-1) %*% c(1, ..., K)
+        Gamma.m.step <- Gamma.m.step%*%Gamma
+        if (i<=nbStepsEsp){
+            Esperance.Ct[i] <- initial.Distribution%*%Gamma.m.step%*%upsilon
+        }
+        if (i<=nbStepsACF){
+            ACF.Ct[i] <- distribution.Distribution%*%Upsilon%*%Gamma.m.step%*%upsilon-(distribution.Distribution%*%upsilon)^2
+        }
+        
+    }
+    plot(Esperance.Ct, ylim=c(0.999,K+0.001), type="l")
+    plot(ACF.Ct, type="h")
+    
+    MomentsMC <- list(Esperance.Ct=Esperance.Ct,
+                      ACF.Ct=ACF.Ct,
+                      distribution.Distribution=distribution.Distribution)
+}
+
 
 
 # ------------------------------------------------------------------------------------
@@ -652,6 +1016,7 @@ normal.HMM.HamiltonFilter = function(mu,
     }
 
     if (is.null(initial.Distribution)){
+        # Utilisation de la distribution stationnaire
         initial.Distribution <- solve(t(diag(nbRegime)-Gamma+1),rep(1,nbRegime))
     }
 
@@ -1090,7 +1455,7 @@ Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type, mu,
     # Defines the layout of the figure output
     if (Transition.Type=="Homogeneous"){
         # Creating the empty image to be filled with plots
-        jpeg(paste(path,'/2 - Graphiques/',name,".jpg",sep=""), width = image.width, height = image.heigth)
+        jpeg(paste(path,"/",name,".jpg",sep=""), width = image.width, height = image.heigth)
         layout(mat = matrix(c(1,1,
                               2,2,
                               3,4,
@@ -1099,7 +1464,7 @@ Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type, mu,
                               7,6),ncol=2,nrow = 6,byrow=TRUE))
     } else {
         # Creating the empty image to be filled with plots
-        jpeg(paste(path,'/2 - Graphiques/',name,".jpg",sep=""), width = image.width, height = image.heigth*7/6)
+        jpeg(paste(path,"/",name,".jpg",sep=""), width = image.width, height = image.heigth*7/6)
         layout(mat = matrix(c(1,1,
                               2,2,
                               8,8,

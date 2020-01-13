@@ -10,7 +10,7 @@
 # Maciej AUGUSTYNIAK
 # ----------------------------------------------------------------------------------------------------
 # Last version : april 15th, 2019
-# Last version : january 7th, 2020
+# Last version : january 13th, 2020
 # ----------------------------------------------------------------------------------------------------
 options(max.print=1000000)
 
@@ -25,13 +25,15 @@ path <- '~/Documents/GitHub/HHMM'
 setwd(path.expand(path)) # Setting Sourcing path
 source("R/HMM.R")
 
+
 # -------------------------------------------------------
 # 
 # 
 # -------------------------------------------------------
-# Initialisation des variables et tableux de résultats
+# Initialisation des variables et tableaux de résultats
 # -------------------------------------------------------
 Analyse <- NULL
+GraphPath <- paste(path,"R/1 - Test Graphs",sep="/")
 
 # -------------------------------------------------------
 # 
@@ -39,24 +41,11 @@ Analyse <- NULL
 # -------------------------------------------------------
 # Préparation des données
 # -------------------------------------------------------
-# index <- "SPXIndex"
-# start.date <- as.Date("2005-01-01")
-# end.date   <- as.Date("2019-12-30")
-# 
-# frequency <- 5
-# mult <- 52
-# 
 data.Origin="R"
-# 
-# nbTicks=30
-# 
-# # Data <- read.csv("1 - Data/Table_Daily.csv") # MATLAB
-# Data <- read.csv("1 - Data/DATA_INDEX.csv") # R
-# 
-# head(Data)
-# data.freq <- "daily"
+nbTicks=30
 
 #load data
+# Data <- read.csv("1 - Data/Table_Daily.csv") # MATLAB
 Data <- read.csv("1 - Data/DATA_INDEX.csv") # R
 head(Data)
 data.freq <- "daily"
@@ -142,18 +131,18 @@ Gamma.HHMM <- matrix(c(0.95  ,  0.04  , 0.01 ,
                        0.5  ,   0.5 ,   0 ),ncol=3,byrow=T)
 
 Gamma.HMM.Diebold <- matrix(c( 2,-4.928700,  # beta_0.0, beta_0.1
-							   1, 7.773485), # beta_1.0, beta_1.1
-							nrow=2, byrow=T)
+                               1, 7.773485), # beta_1.0, beta_1.1
+                            nrow=2, byrow=T)
 
 Gamma.HMM.Diebold.w.filter <- matrix(c(2, -5, 2, # beta_0.0, beta_0.1, beta_0.2
-									   1,  1, 6), # beta_1.0, beta_1.1, beta_1.2
-									 nrow=2, byrow=T)
+                                       1,  1, 6), # beta_1.0, beta_1.1, beta_1.2
+                                     nrow=2, byrow=T)
 
 Gamma.Test=matrix(c(0.90229999, 0.0977, 0, 0.00000001,
-                   0.0096, 0.9778, 0, 0.0126,
-                   0.0109, 0.0093, 0.8739, 0.1059,
-                   0, 0.0005, 0.0947, 0.9048),
-                 byrow=T,nrow=4)
+                    0.0096, 0.9778, 0, 0.0126,
+                    0.0109, 0.0093, 0.8739, 0.1059,
+                    0, 0.0005, 0.0947, 0.9048),
+                  byrow=T,nrow=4)
 
 
 
@@ -190,10 +179,9 @@ test.2 <- HMM.Train(index <- index,
                     PlotName = NULL,
                     data.Origin=data.Origin,
                     auto.assign=F,
-                    path=path,
+                    path=GraphPath,
                     nbTicks=nbTicks)
 real.mllk.2 <- -6190.254
-
 
 
 test.3 <- HMM.Train(index <- index,
@@ -207,7 +195,7 @@ test.3 <- HMM.Train(index <- index,
                     PlotName = NULL,
                     data.Origin=data.Origin,
                     auto.assign=F,
-                    path=path,
+                    path=GraphPath,
                     nbTicks=nbTicks)
 real.mllk.3 <- -6020.947
 
@@ -223,7 +211,7 @@ test.4 <- HMM.Train(index <- index,
                     PlotName = NULL,
                     data.Origin=data.Origin,
                     auto.assign=F,
-                    path=path,
+                    path=GraphPath,
                     nbTicks=nbTicks)
 real.mllk.4 <- -5970.916
 
@@ -245,7 +233,7 @@ test.HHMM <- HMM.Train(index <- index,
                        PlotName = NULL,
                        data.Origin=data.Origin,
                        auto.assign=F,
-                       path=path,
+                       path=GraphPath,
                        nbTicks=nbTicks)
 
 
@@ -267,7 +255,7 @@ test.Diebold.1.0 <- HMM.Train(index <- index,
                               PlotName = NULL,
                               data.Origin=data.Origin,
                               auto.assign=F,
-                              path=path,
+                              path=GraphPath,
                               nbTicks=nbTicks,
                               initial.Distribution = c(1,0))
 
@@ -282,7 +270,7 @@ test.Diebold.0.1 <- HMM.Train(index <- index,
                               PlotName = NULL,
                               data.Origin=data.Origin,
                               auto.assign=F,
-                              path=path,
+                              path=GraphPath,
                               nbTicks=nbTicks,
                               initial.Distribution = c(0,1))
 
@@ -297,7 +285,7 @@ test.Diebold.w.Filter.1.0 <- HMM.Train(index <- index,
                                        PlotName = NULL,
                                        data.Origin=data.Origin,
                                        auto.assign=F,
-                                       path=path,
+                                       path=GraphPath,
                                        nbTicks=nbTicks,
                                        initial.Distribution = c(1,0))
 
@@ -312,7 +300,7 @@ test.Diebold.w.Filter.0.1 <- HMM.Train(index <- index,
                                        PlotName = NULL,
                                        data.Origin=data.Origin,
                                        auto.assign=F,
-                                       path=path,
+                                       path=GraphPath,
                                        nbTicks=nbTicks,
                                        initial.Distribution = c(0,1))
 
@@ -390,335 +378,4 @@ Analyse <- rbind(Analyse,
 colnames(Analyse) <- c('Modèle', "mllk", "AIC", "BIC", "Erreur", "Temps")
 as.data.frame(Analyse)
 
-
-#
-# normal.HMM.mllk(normal.HMM.N2W(mu.Test, sigma.Test, Gamma.Test, type="HMM"),
-#                 logR,
-#                 type="HMM",
-#                 distribution="Normal",
-#                 nu=4)
-
-
-
-# (Gamma <- Gamma.Build.HHMM(prob.i=test$HMM.Train$Gamma,
-#                           type="HHMM"))
-
-
-# HMM.Stack.Plot(test$smooth.Prob,
-#                test$dates)
-#
-# HMM.Stack.Plot(test$filtered.Prob,
-#                test$dates)
-
-
-# test <- HMM.Train(index <- index,
-#                   Data,
-#                   start.date <- start.date,
-#                   end.date   <- end.date,
-#                   frequency=frequency,
-#                   mult=mult,
-#                   # mu0=mu.Test,
-#                   # sigma0=sigma.Test,
-#                   Gamma0=Gamma.HMM.Diebold.w.filter,
-#                   type="HMM",
-#                   distribution='Normal',
-#                   Transition.Type="Diebold.w.filter",
-#                   PlotName = NULL,
-#                   data.Origin=data.Origin,
-#                   auto.assign=T,
-#                   path=path,
-#                   nbTicks=nbTicks,
-#                   initial.Distribution = c(1,0))
-#
-#
-# test <- HMM.Train(index <- index,
-#                   Data,
-#                   start.date <- start.date,
-#                   end.date   <- end.date,
-#                   frequency=frequency,
-#                   mult=mult,
-#                   # mu0=mu.Test,
-#                   # sigma0=sigma.Test,
-#                   Gamma0=Gamma.HMM.Diebold.w.filter,
-#                   type="HMM",
-#                   distribution='Student',
-#                   Transition.Type="Diebold.w.filter",
-#                   PlotName = NULL,
-#                   data.Origin=data.Origin,
-#                   auto.assign=T,
-#                   path=path,
-#                   nbTicks=nbTicks,
-#                   initial.Distribution = c(1,0))
-#
-#
-# test <- HMM.Train(index <- index,
-#                   Data,
-#                   start.date <- start.date,
-#                   end.date   <- end.date,
-#                   frequency=frequency,
-#                   mult=mult,
-#                   # mu0=mu.Test,
-#                   # sigma0=sigma.Test,
-#                   Gamma0=Gamma.HMM.Diebold.w.filter,
-#                   type="HMM",
-#                   distribution='Normal',
-#                   Transition.Type="Diebold.w.filter",
-#                   PlotName = NULL,
-#                   data.Origin=data.Origin,
-#                   auto.assign=T,
-#                   path=path,
-#                   nbTicks=nbTicks,
-#                   initial.Distribution = c(0,1))
-#
-#
-# test <- HMM.Train(index <- index,
-#                   Data,
-#                   start.date <- start.date,
-#                   end.date   <- end.date,
-#                   frequency=frequency,
-#                   mult=mult,
-#                   # mu0=mu.Test,
-#                   # sigma0=sigma.Test,
-#                   Gamma0=Gamma.HMM.Diebold.w.filter,
-#                   type="HMM",
-#                   distribution='Student',
-#                   Transition.Type="Diebold.w.filter",
-#                   PlotName = NULL,
-#                   data.Origin=data.Origin,
-#                   auto.assign=T,
-#                   path=path,
-#                   nbTicks=nbTicks,
-#                   initial.Distribution = c(0,1))
-#
-#
-# test <- HMM.Train(index <- index,
-#                   Data,
-#                   start.date <- start.date,
-#                   end.date   <- end.date,
-#                   frequency=frequency,
-#                   mult=mult,
-#                   # mu0=mu.Test,
-#                   # sigma0=sigma.Test,
-#                   Gamma0=Gamma.HMM.Diebold,
-#                   type="HMM",
-#                   distribution='Normal',
-#                   Transition.Type="Diebold",
-#                   PlotName = NULL,
-#                   data.Origin=data.Origin,
-#                   auto.assign=T,
-#                   path=path,
-#                   nbTicks=nbTicks,
-#                   initial.Distribution = c(1,0))
-#
-#
-# test <- HMM.Train(index <- index,
-#                   Data,
-#                   start.date <- start.date,
-#                   end.date   <- end.date,
-#                   frequency=frequency,
-#                   mult=mult,
-#                   # mu0=mu.Test,
-#                   # sigma0=sigma.Test,
-#                   Gamma0=Gamma.HMM.Diebold,
-#                   type="HMM",
-#                   distribution='Student',
-#                   Transition.Type="Diebold",
-#                   PlotName = NULL,
-#                   data.Origin=data.Origin,
-#                   auto.assign=T,
-#                   path=path,
-#                   nbTicks=nbTicks,
-#                   initial.Distribution = c(1,0))
-#
-#
-# test <- HMM.Train(index <- index,
-#                   Data,
-#                   start.date <- start.date,
-#                   end.date   <- end.date,
-#                   frequency=frequency,
-#                   mult=mult,
-#                   # mu0=mu.Test,
-#                   # sigma0=sigma.Test,
-#                   Gamma0=Gamma.HMM.Diebold,
-#                   type="HMM",
-#                   distribution='Normal',
-#                   Transition.Type="Diebold",
-#                   PlotName = NULL,
-#                   data.Origin=data.Origin,
-#                   auto.assign=T,
-#                   path=path,
-#                   nbTicks=nbTicks,
-#                   initial.Distribution = c(0,1))
-#
-#
-# test <- HMM.Train(index <- index,
-#                   Data,
-#                   start.date <- start.date,
-#                   end.date   <- end.date,
-#                   frequency=frequency,
-#                   mult=mult,
-#                   # mu0=mu.Test,
-#                   # sigma0=sigma.Test,
-#                   Gamma0=Gamma.HMM.Diebold,
-#                   type="HMM",
-#                   distribution='Student',
-#                   Transition.Type="Diebold",
-#                   PlotName = NULL,
-#                   data.Origin=data.Origin,
-#                   auto.assign=T,
-#                   path=path,
-#                   nbTicks=nbTicks,
-#                   initial.Distribution = c(0,1))
-#
-#
-# test <- HMM.Train(index <- index,
-#                   Data,
-#                   start.date <- start.date,
-#                   end.date   <- end.date,
-#                   frequency=frequency,
-#                   mult=mult,
-#                   # mu0=mu.Test,
-#                   # sigma0=sigma.Test,
-#                   Gamma0=Gamma.HMM.2,
-#                   type="HMM",
-#                   distribution='Normal',
-#                   Transition.Type="Homogeneous",
-#                   PlotName = NULL,
-#                   data.Origin=data.Origin,
-#                   auto.assign=T,
-#                   path=path,
-#                   nbTicks=nbTicks)
-#
-#
-# test <- HMM.Train(index <- index,
-#                   Data,
-#                   start.date <- start.date,
-#                   end.date   <- end.date,
-#                   frequency=frequency,
-#                   mult=mult,
-#                   # mu0=mu.Test,
-#                   # sigma0=sigma.Test,
-#                   Gamma0=Gamma.HMM.2,
-#                   type="HMM",
-#                   distribution='Student',
-#                   Transition.Type="Homogeneous",
-#                   PlotName = NULL,
-#                   data.Origin=data.Origin,
-#                   auto.assign=T,
-#                   path=path,
-#                   nbTicks=nbTicks)
-#
-#
-# test <- HMM.Train(index <- index,
-#                   Data,
-#                   start.date <- start.date,
-#                   end.date   <- end.date,
-#                   frequency=frequency,
-#                   mult=mult,
-#                   # mu0=mu.Test,
-#                   # sigma0=sigma.Test,
-#                   Gamma0=Gamma.HMM.3,
-#                   type="HMM",
-#                   distribution='Normal',
-#                   Transition.Type="Homogeneous",
-#                   PlotName = NULL,
-#                   data.Origin=data.Origin,
-#                   auto.assign=T,
-#                   path=path,
-#                   nbTicks=nbTicks)
-#
-#
-# test <- HMM.Train(index <- index,
-#                   Data,
-#                   start.date <- start.date,
-#                   end.date   <- end.date,
-#                   frequency=frequency,
-#                   mult=mult,
-#                   # mu0=mu.Test,
-#                   # sigma0=sigma.Test,
-#                   Gamma0=Gamma.HMM.3,
-#                   type="HMM",
-#                   distribution='Student',
-#                   Transition.Type="Homogeneous",
-#                   PlotName = NULL,
-#                   data.Origin=data.Origin,
-#                   auto.assign=T,
-#                   path=path,
-#                   nbTicks=nbTicks)
-#
-#
-# test <- HMM.Train(index <- index,
-#                   Data,
-#                   start.date <- start.date,
-#                   end.date   <- end.date,
-#                   frequency=frequency,
-#                   mult=mult,
-#                   # mu0=mu.Test,
-#                   # sigma0=sigma.Test,
-#                   Gamma0=Gamma.HMM.4,
-#                   type="HMM",
-#                   distribution='Normal',
-#                   Transition.Type="Homogeneous",
-#                   PlotName = NULL,
-#                   data.Origin=data.Origin,
-#                   auto.assign=T,
-#                   path=path,
-#                   nbTicks=nbTicks)
-#
-#
-# test <- HMM.Train(index <- index,
-#                   Data,
-#                   start.date <- start.date,
-#                   end.date   <- end.date,
-#                   frequency=frequency,
-#                   mult=mult,
-#                   # mu0=mu.Test,
-#                   # sigma0=sigma.Test,
-#                   Gamma0=Gamma.HMM.4,
-#                   type="HMM",
-#                   distribution='Normal',
-#                   Transition.Type="Homogeneous",
-#                   PlotName = NULL,
-#                   data.Origin=data.Origin,
-#                   auto.assign=T,
-#                   path=path,
-#                   nbTicks=nbTicks)
-
-# 
-# test <- HMM.Train(index <- index,
-#                   Data,
-#                   start.date <- start.date,
-#                   end.date   <- end.date,
-#                   frequency=frequency,
-#                   mult=mult,
-#                   # mu0=mu.Test,
-#                   # sigma0=sigma.Test,
-#                   Gamma0=Gamma.HHMM,
-#                   type="HHMM",
-#                   distribution='Normal',
-#                   Transition.Type="Homogeneous",
-#                   PlotName = NULL,
-#                   data.Origin=data.Origin,
-#                   auto.assign=T,
-#                   path=path,
-#                   nbTicks=nbTicks)
-
-
-# test <- HMM.Train(index <- index,
-#                   Data,
-#                   start.date <- start.date,
-#                   end.date   <- end.date,
-#                   frequency=frequency,
-#                   mult=mult,
-#                   # mu0=mu.Test,
-#                   # sigma0=sigma.Test,
-#                   Gamma0=Gamma.HHMM,
-#                   type="HHMM",
-#                   distribution='Student',
-#                   Transition.Type="Homogeneous",
-#                   PlotName = NULL,
-#                   data.Origin=data.Origin,
-#                   auto.assign=T,
-#                   path=path,
-#                   nbTicks=nbTicks)
 
