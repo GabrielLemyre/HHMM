@@ -326,14 +326,15 @@ HMM.Train = function(index,
     # --------------------------------------------
     # CREATING THE DIAGNOSIS PLOT
     # --------------------------------------------
-    DiagnosisPlotName <- paste(PlotName,"Diagnosis",sep="_")
-    Diagnosis(gamma=HMM.Train$Gamma, 
-              # additional.info = rbind(HMM.Train$mu,HMM.Train$sigma), 
-              # special.Weights=HMM.Train$sigma,
-              # network.print = FALSE,
-              plotName=DiagnosisPlotName,
-              docPath=path)
-    
+    if (Transition.Type=="Homogeneous"){
+        Diagnosis(Gamma=HMM.Train$Gamma, 
+                  type=type,
+                  # additional.info = rbind(HMM.Train$mu,HMM.Train$sigma), 
+                  # special.Weights=HMM.Train$sigma,
+                  # network.print = FALSE,
+                  plotName=paste(PlotName,"Diagnosis",sep="_"),
+                  docPath=path)
+    }
     
     # --------------------------------------------
     # RETURNING RESULTS TO THE FUNCTION NAME
@@ -362,7 +363,8 @@ HMM.Train = function(index,
 #   stationnaire ainsi qu'une vsualisation de toutes ces 
 #   quantité en format jpg
 # --------------------------------------------------------
-Diagnosis <- function(gamma,                # Transition matrix
+Diagnosis <- function(Gamma,                # Transition matrix
+                      type="HMM", 
                       plotName=NULL,        # Name to give the plot, if absent it's replace by test and the date/time
                       special.Weights=NULL, # Used to define thickness of lines in network
                       network.print=FALSE,  # TODO : Should the network be printed 
@@ -374,11 +376,21 @@ Diagnosis <- function(gamma,                # Transition matrix
                                   "firebrick3","deepskyblue1","blue4",NA,
                                   "firebrick3","darksalmon","deepskyblue1","blue4"),ncol=4,byrow=T)
     
-    t <- 1 # Initial entry row number
-    n <- dim(gamma)[1]
-    # print(paste("Gamma dimension :",n,sep=" "))
+    if (type=="HHMM"){
+        GammaHHMM <- Gamma # On garde le format initiale de la matrice
+        Gamma.vec <- Gamma.Build(prob.i=Gamma,
+                                 type=type,
+                                 Transition.Type="Homogeneous",
+                                 nbStepsBack=nbStepsBack)
+        
+        Gamma <- Gamma.vec$Gamma
+    }
     
-    temp.eigen <- eigen(gamma)
+    t <- 1 # Initial entry row number
+    nbRegime <- dim(Gamma)[1]
+    # print(paste("Gamma dimension :",nbRegime,sep=" "))
+    
+    temp.eigen <- eigen(Gamma)
     # print(temp.eigen)
     
     eigen.values <- temp.eigen$values
@@ -396,15 +408,15 @@ Diagnosis <- function(gamma,                # Transition matrix
     # print(eigen.vectors.D%*%diag(eigen.values)%*%eigen.vectors.G)
     # print(eigen.vectors.D%*%eigen.vectors.G)
     # print(eigen.vectors.D[,1]*eigen.vectors.G[1,])
-    # print(gamma%*%eigen.vectors.D)
+    # print(Gamma%*%eigen.vectors.D)
     # print(eigen.vectors.D%*%diag(eigen.values))
     
     # TESTING FOR PI
-    # print(eigen.vectors.D %*% diag(c(1,rep(0,n-1))) %*% eigen.vectors.G)
+    # print(eigen.vectors.D %*% diag(c(1,rep(0,nbRegime-1))) %*% eigen.vectors.G)
     
     # STATIONNARY DISTRIBUTION COMPUTATION
-    vec.unitaire <- rep(1,n)
-    dist.asympt <- t(vec.unitaire)%*%solve(diag(n)-gamma+vec.unitaire%*%t(vec.unitaire))
+    vec.unitaire <- rep(1,nbRegime)
+    dist.asympt <- t(vec.unitaire)%*%solve(diag(nbRegime)-Gamma+vec.unitaire%*%t(vec.unitaire))
     # print(dist.asympt)
     
     
@@ -436,7 +448,7 @@ Diagnosis <- function(gamma,                # Transition matrix
     
     # GAMMA
     par(mar=c(5,5,5,5))
-    color2D.matplot(gamma,cellcolors="#ffffff",
+    color2D.matplot(Gamma,cellcolors="#ffffff",
                     main="Matrice de transition",
                     cex.main=title.size,
                     show.values=3,
@@ -460,8 +472,8 @@ Diagnosis <- function(gamma,                # Transition matrix
     # RIGHT EIGEN VECTORS
     par(mar=c(5,5,5,5))
     
-    cellcol<-matrix(rep("#ffffff",n^2),nrow=n)
-    cellcol[,1]<-rep("#c5e1a5",n)
+    cellcol<-matrix(rep("#ffffff",nbRegime^2),nrow=nbRegime)
+    cellcol[,1]<-rep("#c5e1a5",nbRegime)
     
     color2D.matplot(eigen.vectors.D,cellcolors=cellcol,
                     main="Vecteurs propres droits",
@@ -487,8 +499,8 @@ Diagnosis <- function(gamma,                # Transition matrix
     # EIGEN VALUES ON DIAGONAL
     par(mar=c(5,5,5,5))
     
-    cellcol<-matrix(rep("#ffffff",n^2),nrow=n)
-    diag(cellcol)<-c("#fff59D","#81d4fa",rep("#ffffff",(n-2)))
+    cellcol<-matrix(rep("#ffffff",nbRegime^2),nrow=nbRegime)
+    diag(cellcol)<-c("#fff59D","#81d4fa",rep("#ffffff",(nbRegime-2)))
     
     color2D.matplot(diag(eigen.values),cellcolors=cellcol,
                     main="Valeurs propres",
@@ -513,8 +525,8 @@ Diagnosis <- function(gamma,                # Transition matrix
     # LEFT EIGEN VECTORS
     par(mar=c(5,5,5,5))
     
-    cellcol<-matrix(rep("#ffffff",n^2),nrow=n)
-    cellcol[1,]<-rep("#fff59D",n)
+    cellcol<-matrix(rep("#ffffff",nbRegime^2),nrow=nbRegime)
+    cellcol[1,]<-rep("#fff59D",nbRegime)
     
     color2D.matplot(eigen.vectors.G,
                     main="Vecteurs propres gauches",
@@ -531,35 +543,38 @@ Diagnosis <- function(gamma,                # Transition matrix
     color2D.matplot(dist.asympt,
                     main="Distribution Asymptotique",
                     cex.main=title.size,
-                    cellcolors=rep("#ffffff",n),
+                    cellcolors=rep("#ffffff",nbRegime),
                     show.values=3,
                     vcol=rgb(0,0,0),
                     axes=FALSE,
                     vcex=cex.lab, xlab="", ylab="")
     
-    # TEMPS MOYEN DANS L'ÉTAT
+    
+    # TEMPS DE SÉJOUR MOYEN DANS L'ÉTAT
     par(mar=c(5,5,5,5))
-    
-    color2D.matplot(1/dist.asympt,
-                    main="E[ Temps de retour i | Départ en i ]",
+    TempsSejour <- matrix(1/(1-diag(Gamma)),ncol=nbRegime) # Temps de séjour moyen dans un état
+    color2D.matplot(TempsSejour,
+                    main="E[ Nombre de périodes consécutives dans un état ]",
                     cex.main=title.size,
-                    cellcolors=rep("#ffffff",n),
+                    cellcolors=rep("#ffffff",nbRegime),
                     show.values=3,
                     vcol=rgb(0,0,0),
                     axes=FALSE,
                     vcex=cex.lab, xlab="", ylab="")
     
+    
+    # PRINTING THE NETWORK
     if (network.print){ # TODO : Add the space to accomodate the network
         
-        links <- data.frame(matrix(0,nrow=sum(gamma>0),ncol=5))
+        links <- data.frame(matrix(0,nrow=sum(Gamma>0),ncol=5))
         names(links) <- c("Source","Target","weight","edge.color","edge.loop.angle")
         
         # Getting links and their weights
-        for (i in 1:n){
-            for (j in 1:n){
-                if (gamma[i,j]>0){
-                    links[t,] <- c(i,j,gamma[i,j], custom.Colors.vec[(n-1),i],
-                                   if(i==j){-(i-1)*pi/(n/2)}else{0} # Rotation de la boucle de -2pi/n radian
+        for (i in 1:nbRegime){
+            for (j in 1:nbRegime){
+                if (Gamma[i,j]>0){
+                    links[t,] <- c(i,j,Gamma[i,j], custom.Colors.vec[(nbRegime-1),i],
+                                   if(i==j){-(i-1)*pi/(nbRegime/2)}else{0} # Rotation de la boucle de -2pi/nbRegime radian
                     )
                     t <- t+1
                 }
@@ -569,17 +584,17 @@ Diagnosis <- function(gamma,                # Transition matrix
         links[,c(1:3,5)] <- sapply(links[,c(1:3,5)], as.numeric)
         
         # Building the network
-        network <- graph_from_data_frame(d=links, vertices=1:n, directed=T)
+        network <- graph_from_data_frame(d=links, vertices=1:nbRegime, directed=T)
         # print(E(network)$weight)
         
-        temp.weights <- gamma-diag(gamma)
-        temp.weights.normalized <- temp.weights/rowSums(temp.weights)+diag(gamma)
+        temp.weights <- Gamma-diag(Gamma)
+        temp.weights.normalized <- temp.weights/rowSums(temp.weights)+diag(Gamma)
         
         if (!is.null(special.Weights)){
             print(V(network))
             Vertex.size <- special.Weights/sum(special.Weights)*100
         } else {
-            Vertex.size <- colSums(gamma)/sum(colSums(gamma))*100
+            Vertex.size <- colSums(Gamma)/sum(colSums(Gamma))*100
         }
         
         E(network)$width <- temp.weights.normalized*5
@@ -592,7 +607,7 @@ Diagnosis <- function(gamma,                # Transition matrix
              edge.curved=seq(0, 0.8,
                              length = ecount(network)),
              edge.color=E(network)$edge.color,
-             vertex.color=custom.Colors.vec[(n-1),],
+             vertex.color=custom.Colors.vec[(nbRegime-1),],
              vertex.label.color="white",
              vertex.label.cex=Vertex.size/10,
              layout=layout.circle,
@@ -604,7 +619,7 @@ Diagnosis <- function(gamma,                # Transition matrix
     # Closing the plot
     dev.off()
     
-    cat("Image was saved as ",FilePathName,sep="")
+    cat("Image was saved as ",FilePathName,"\n",sep="")
     
     return(list(eigen.values=eigen.values,
                 eigen.vectors.D=eigen.vectors.D,
@@ -1408,7 +1423,7 @@ HMM.Stack.Plot = function(series,xlabels,nbTicks=30,custom.Colors, axis.label.si
 Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type, mu,
                               sigma,nu,distribution, Gamma, name,path,
                               resolution,nbTicks,Transition.Type,
-                              nbStepsBack,optimResults,
+                              nbStepsBack, optimResults,
                               diag.pers.Gamma,
                               Time.String=NULL){
 
@@ -1431,10 +1446,12 @@ Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type, mu,
 
     # If the model is Hierarchical, the Gamma matrix is built here
     if (type=="HHMM"){
-        Gamma.Built <- Gamma.Build(prob.i=Gamma,
+        Gamma.Built.list <- Gamma.Build(prob.i=Gamma,
                                    type=type,
                                    Transition.Type)
-
+        Gamma.Built <- Gamma.Built.list$Gamma
+    } else {
+        Gamma.Built <- Gamma # Nécessaire pour le calcul du temps de séjour
     }
 
     # Getting dates in correct format while keeping only year and month
@@ -1575,7 +1592,7 @@ Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type, mu,
             col=custom.Colors.Realized,
             border="brown",
             lwd=4,
-            varwidth = TRUE, xaxt="n")
+            varwidth = TRUE, xaxt="n", xlab="",ylab="")
 
     title(main = "Boxplots of observations by\nmaximum probability",
           cex.main=title.size)
@@ -1592,10 +1609,10 @@ Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type, mu,
          line=3, tick=F)
 
     # -----------------------------------------------------------------------------------------
-    print("mu and sigma")
+    print("mu, sigma et temps de séjour")
     # -----------------------------------------------------------------------------------------
 
-    rowNames <- c("mu","sigma")
+    rowNames <- c("mu","sigma","Temps séjour")
     if (type=="HMM"){
         colNames <- paste("state",as.character(1:nbRegime),sep="")
     } else if (type=="HHMM"){
@@ -1603,9 +1620,12 @@ Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type, mu,
     }
 
     #Set up the plot area and plot the matrix
-    par(mar=c(16, 60, 16, 60))
-
-    color2D.matplot(rbind(mu,sigma),cellcolors="#ffffff",
+    par(mar=c(6, 60, 6, 60))
+    
+    TempsSejour <- matrix(1/(1-diag(Gamma.Built)),ncol=nbRegime) # Temps de séjour moyen dans un état
+    
+    color2D.matplot(rbind(mu,sigma,TempsSejour),
+                    cellcolors="#ffffff",
                     main="Parameters",
                     cex.main=title.size,
                     show.values=3,
@@ -1614,7 +1634,7 @@ Grid.Plot.HMM.Full = function(timeseries, dates, state.Probs, type, mu,
                     vcex=cex.lab, xlab="", ylab="")
 
     # ROW LABELS
-    axis(2, at=seq(2, 1, -1)-0.5, labels=rowNames, padj=0.5,line = 2, las=2, tick=F,cex.axis=cex.lab)
+    axis(2, at=seq(3, 1, -1)-0.5, labels=rowNames, padj=0.5,line = 2, las=2, tick=F,cex.axis=cex.lab)
 
     # COLUMN LABELS
     for (i in 1:nbRegime){
