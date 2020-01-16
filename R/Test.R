@@ -88,6 +88,20 @@ des_stats <- c("Mean" = mean(logR),
 )
 des_stats
 
+# Affichage des observations ordonnées
+plot(sort(logR))
+
+# Test de Normalité
+qqnorm(logR)
+qqline(logR, col=2)
+
+
+acf(logR)
+
+boxplot(logR)
+
+
+
 # ————————————————————————————————————————————————————————————————————————————————————
 # ////////////////////////////////////////////////////////////////////
 # TESTING THE CODE
