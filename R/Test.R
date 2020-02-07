@@ -94,7 +94,7 @@ Make.LaTeX.Table(matrix(des_stats,nrow=1),
                  Col.Titles = names(des_stats),
                  Cross.Lines = T, 
                  Row.Pos = 'c',
-                 title=paste("Statistiques descriptive sur ",index,sep=""))
+                 title=paste("Statistiques descriptives sur ",index,sep=""))
 
 # JPEG DIMENSIONS FOR OUTPUTED FILE
 image.width <- 1250
@@ -129,7 +129,7 @@ par(mar = rep(6, 4)) # Set the margin on all sides to 2
 z.norm<-(logR-mean(logR))/sd(logR) ## standardized data 
 
 # Estimation de la densité des données
-plot(density(logR),main=paste("Estimation de la densité des log-rendements de",index), cex.main=2)
+plot(density(logR),main=paste("Estimation de la densité non-paramétrique des log-rendements de",index), cex.main=2)
 
 # Comparaison des quantiles de l'échantillon par rapport à ceux d'une normale
 qqnorm(z.norm, cex.main=2) ## drawing the QQplot 
