@@ -37,6 +37,8 @@ library(plotrix)
 library(timeDate)
 # install.packages('rootSolve') # Outil d'analyse de séries chronologiques
 library("rootSolve", lib.loc="~/Library/R/3.1/library")
+# install.packages('MASS') # permet d'entrainer une normale sans spécifier la llk explicitement
+library(MASS) ## loading package MASS
 
 
 # -------------------------------------------------------

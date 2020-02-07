@@ -82,15 +82,19 @@ logR <- logR * mult
 
 
 #descriptive statistics
-des_stats <- c("Mean" = mean(logR),
-               "StDev" = sd(logR),
-               "Skewness" = timeDate::skewness(logR, method="moment"),
-               "Kurtosis" = timeDate::kurtosis(logR, method="moment"), "Minimum" = min(logR),
+des_stats <- c("Moyenne" = mean(logR),
+               "Écart-type" = sd(logR),
+               "Asymétrie" = timeDate::skewness(logR, method="moment"),
+               "Aplatissement" = timeDate::kurtosis(logR, method="moment"), "Minimum" = min(logR),
                "Maximum" = max(logR), "n" = length(logR)
 )
 des_stats
 
-
+Make.LaTeX.Table(matrix(des_stats,nrow=1),
+                 Col.Titles = names(des_stats),
+                 Cross.Lines = T, 
+                 Row.Pos = 'c',
+                 title=paste("Statistiques descriptive sur ",index,sep=""))
 
 # JPEG DIMENSIONS FOR OUTPUTED FILE
 image.width <- 1250
@@ -116,19 +120,96 @@ abline(h=0, col="blue")
 dev.off()
 
 
-# Affichage des observations ordonnées
-plot(sort(logR))
 
-# Test de Normalité
-qqnorm(logR)
-qqline(logR, col=2)
+# Plot the normality tests and export resulting plot
+jpeg(paste(GraphPath,"/1 - DataStats/Dataset_Normality_",index,".png",sep=""), width = image.width, height = image.heigth)
+layout(matrix(c(1,2),2,1,byrow=TRUE))
+par(mar = rep(6, 4)) # Set the margin on all sides to 2
+
+z.norm<-(logR-mean(logR))/sd(logR) ## standardized data 
+
+# Estimation de la densité des données
+plot(density(logR),main=paste("Estimation de la densité des log-rendements de",index), cex.main=2)
+
+# Comparaison des quantiles de l'échantillon par rapport à ceux d'une normale
+qqnorm(z.norm, cex.main=2) ## drawing the QQplot 
+abline(0,1) ## drawing a 45-degree reference line
+
+dev.off()
+
+# # Test de Normalité
+# qqnorm(logR)
+# qqline(logR, col=2)
 
 
-acf(logR[seq(from=1,to=length(logR),by=5)])
+
+
+
+# ————————————————————————————————————————————————————————————————————————————————————
+# ////////////////////////////////////////////////////////////////////
+# FAITS STYLISÉS DES RENDEMENTS FINANCIERS
+# \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+# -———————————————————————————————————————————————————————————————————————————————————
+
+epsilon <- logR-mean(logR)
+
+# Plot de l'autocorrélation des rendements et du carré des erreurs au carrée
+jpeg(paste(GraphPath,"/1 - DataStats/Dataset_ACF_",index,".png",sep=""), width = image.width, height = image.heigth)
+layout(matrix(c(1,2,3),3,1,byrow=TRUE))
+par(mar = rep(6, 4)) # Set the margin on all sides to 2
+
+# Fonction d'autocorrélation des rendements
+AutoCorrelation <- acf(logR, plot = FALSE)
+plot(AutoCorrelation, main="")
+title(main = paste("ACF des log-rendements de ",index,sep=""), cex.main=2)
+
+# Fonction d'autocorrélation des rendements centrés au carré
+AutoCorrelationRES <- acf(epsilon^2, plot = FALSE)
+plot(AutoCorrelationRES, main="")
+title(main = paste("ACF des log-rendements centrés au carré de ",index,sep=""), cex.main=2)
+
+# Fonction d'autocorrélation des rendements centrés au carré
+AutoCorrelationAbsRES <- acf(abs(epsilon), plot = FALSE)
+plot(AutoCorrelationAbsRES, main="")
+title(main = paste("ACF de la valeur absolue des log-rendements centrés de ",index,sep=""), cex.main=2)
+
+dev.off()
+
+
+maxf <- function(x){max(x,0)}
+negImpact <- sapply(-epsilon,FUN=maxf)
+posImpact <- sapply(epsilon,FUN=maxf)
+
+# Plot afin d'illustrer l'effet de levier
+jpeg(paste(GraphPath,"/1 - DataStats/Dataset_LEVIER_",index,".png",sep=""), width = image.width, height = image.heigth)
+layout(matrix(c(1,2,3),3,1,byrow=TRUE))
+par(mar = rep(6, 4)) # Set the margin on all sides to 2
+
+# Corrélation entre la valeur absolue des erreurs et un impact négatif
+AutoCorrelationLEVIER.NEG <- ccf(abs(epsilon), negImpact, ylab = "Effet négatif", plot=F)
+# On ne conserve que les lag positifs
+AutoCorrelationLEVIER.NEG.lag <- AutoCorrelationLEVIER.NEG$acf[AutoCorrelationLEVIER.NEG$lag>=0]
+names(AutoCorrelationLEVIER.NEG.lag) <- AutoCorrelationLEVIER.NEG$lag[AutoCorrelationLEVIER.NEG$lag>=0]
+# Diagramme à bande des corrélations croisées
+barplot(height=c(AutoCorrelationLEVIER.NEG.lag), main="", xlab="lags",names.arg=names(AutoCorrelationLEVIER.NEG.lag))
+title(main = "Corrélation avec un impact négatif", cex.main=2)
+
+# Corrélation entre la valeur absolue des erreurs et un impact positif
+AutoCorrelationLEVIER.POS <- ccf(abs(epsilon), posImpact, ylab = "Effet positif", plot=F)
+# On ne conserve que les lag positifs
+AutoCorrelationLEVIER.POS.lag <- AutoCorrelationLEVIER.POS$acf[AutoCorrelationLEVIER.POS$lag>=0]
+names(AutoCorrelationLEVIER.POS.lag) <- AutoCorrelationLEVIER.POS$lag[AutoCorrelationLEVIER.POS$lag>=0]
+# Diagramme à bande des corrélations croisées
+barplot(height=c(AutoCorrelationLEVIER.POS.lag), main="", xlab="lags",names.arg=names(AutoCorrelationLEVIER.POS.lag))
+title(main = "Corrélation avec un impact positif", cex.main=2)
+
+# Diagramme à bande de la différence entre les corrélations d'un impact négatif et d'un impact positif
+barplot(height=c(AutoCorrelationLEVIER.NEG.lag-AutoCorrelationLEVIER.POS.lag),names.arg=names(AutoCorrelationLEVIER.NEG.lag), col="red")
+title(main = "correlation impact négatif - correlation impact positif", cex.main=2)
+
+dev.off()
 
 boxplot(logR)
-
-
 
 # ————————————————————————————————————————————————————————————————————————————————————
 # ////////////////////////////////////////////////////////////////////
