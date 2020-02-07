@@ -35,6 +35,8 @@ library(grid)
 library(plotrix)
 # install.packages('timeDate') # add tables in plots
 library(timeDate)
+# install.packages('rootSolve') # Outil d'analyse de séries chronologiques
+library("rootSolve", lib.loc="~/Library/R/3.1/library")
 
 
 # -------------------------------------------------------

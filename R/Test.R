@@ -25,7 +25,6 @@ path <- '~/Documents/GitHub/HHMM'
 setwd(path.expand(path)) # Setting Sourcing path
 source("R/HMM.R")
 
-
 # -------------------------------------------------------
 # 
 # 
@@ -33,51 +32,54 @@ source("R/HMM.R")
 # Initialisation des variables et tableaux de résultats
 # -------------------------------------------------------
 Analyse <- NULL
-GraphPath <- paste(path,"R/1 - Test Graphs",sep="/")
+GraphPath <- paste(path,"R/1 - Graphs",sep="/")
 
 # -------------------------------------------------------
 # 
 # 
+resdev=300
 # -------------------------------------------------------
 # Préparation des données
 # -------------------------------------------------------
 data.Origin="R"
-nbTicks=30
+nbTicks=10
 
 #load data
-# Data <- read.csv("1 - Data/Table_Daily.csv") # MATLAB
-Data <- read.csv("1 - Data/DATA_INDEX.csv") # R
+Data <- read.csv("1 - Data/Table_Daily.csv") # MATLAB
+# Data <- read.csv("1 - Data/DATA_INDEX.csv") # R
 head(Data)
 data.freq <- "daily"
 mult <- 100          #multiply all returns by -mult-
 
-index <- "SP500"
+
+index <- "SPXIndex"
 start.date <- as.Date("1999-12-31")
-end.date   <- as.Date("2016-12-30")
+end.date   <- as.Date("2016-12-28")
 #weekdays(start.date); weekdays(end.date);
 
-dates <- as.Date(as.character(Data[,1]))
+dates <- as.Date(as.character(Matlab2Rdate(Data[,1])))
 st <- which(dates==start.date)
-en <- which(dates==end.date)
+en <- min(which(dates==end.date),length(dates))
 dates <- dates[st:en]
 Pt <- as.numeric(as.character(Data[st:en,index]))
+
 names(Pt) <- dates
 Pt <- Pt[!is.na(Pt)]
 dates <- names(Pt)
+
+#  Correction valeur éronnée dans la table du S&P500
+if (index=="SPXIndex"){
+  Pt["2015-05-14"] <- 2121.10
+}
+
+
+# AR.Order.Original <- ar(Pt)
+
 
 logR <- log( Pt[-1] / Pt[-length(Pt)] )
 logR <- logR * mult
 #the length of logR is one less than Pt
 
-#convert dates into a numeric vector (useful for figures)
-t_ <- as.POSIXlt(c(as.character(start.date),names(logR)), format="%Y-%m-%d")
-n.days <- rep(365, length(t_))
-n.days[((1900+t_$year) %% 4)==0] <- 366 #leap years
-t_  <- 1900 + t_$year + (t_$yday+1)/n.days
-#when yday=0, we are jan. 1st
-#as.POSIXlt("2012-01-01",format="%Y-%m-%d")$yday
-
-# no factors in a data.frame : stringsAsFactors=F
 
 #descriptive statistics
 des_stats <- c("Mean" = mean(logR),
@@ -88,6 +90,32 @@ des_stats <- c("Mean" = mean(logR),
 )
 des_stats
 
+
+
+# JPEG DIMENSIONS FOR OUTPUTED FILE
+image.width <- 1250
+image.heigth <- 666
+
+# Plot the dataset and export resulting plot
+jpeg(paste(GraphPath,"/1 - DataStats/Dataset_",index,".png",sep=""), width = image.width, height = image.heigth)
+layout(matrix(c(1,2),2,1,byrow=TRUE))
+par(mar = rep(6, 4)) # Set the margin on all sides to 2
+xtick<-seq(1, length(dates), by=floor(length(dates)/nbTicks))
+
+
+plot(Pt,type="l",xlab="Dates",ylab="Value", xaxt="n", cex.axis=1.8, cex.lab=2)
+axis(side=1, at=xtick, labels=dates[xtick], cex.axis=1.8)
+title(main=paste("Valeur de l'indice ",index,sep=""), cex.main=2)
+
+plot(logR,type="l",xlab="Dates", xaxt="n", cex.axis=1.8, cex.lab=2)
+axis(side=1, at=xtick, labels=dates[xtick], cex.axis=1.8)
+title(main=paste("Log-rendement sur l'indice ",index,sep=""), cex.main=2)
+abline(h=0, col="blue")
+
+
+dev.off()
+
+
 # Affichage des observations ordonnées
 plot(sort(logR))
 
@@ -96,7 +124,7 @@ qqnorm(logR)
 qqline(logR, col=2)
 
 
-acf(logR)
+acf(logR[seq(from=1,to=length(logR),by=5)])
 
 boxplot(logR)
 
