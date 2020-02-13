@@ -8,7 +8,7 @@
 # Under the supervision of :
 # Maciej AUGUSTYNIAK
 # ----------------------------------------------------------------------------------------------------
-# Last version : april 15th, 2019
+# First version : april 15th, 2019
 # Last version : january 13th, 2020
 # ----------------------------------------------------------------------------------------------------
 
@@ -40,6 +40,17 @@ library("rootSolve", lib.loc="~/Library/R/3.1/library")
 # install.packages('MASS') # permet d'entrainer une normale sans spécifier la llk explicitement
 library(MASS) ## loading package MASS
 
+# Instalation du package forecast permettant d'utiliser les fonctions ACF, PAcf et CCf
+# install.packages('forecast', dependencies = TRUE) # Installation du package
+library(forecast)
+
+# Permet de créer des graphiques très complexes
+# install.packages('ggplot2', dependencies = TRUE) # Installation du package
+library(ggplot2)
+
+# Instalation du package cowplot opermettant de combiner des graphiques
+# install.packages('cowplot', dependencies = TRUE) # Installation du package
+library(cowplot)
 
 # -------------------------------------------------------
 # 

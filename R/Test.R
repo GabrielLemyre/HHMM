@@ -9,8 +9,8 @@
 # Under the supervision of :
 # Maciej AUGUSTYNIAK
 # ----------------------------------------------------------------------------------------------------
-# Last version : april 15th, 2019
-# Last version : january 13th, 2020
+# First version : april 15th, 2019
+# Last version : february 13th, 2020
 # ----------------------------------------------------------------------------------------------------
 options(max.print=1000000)
 
@@ -123,17 +123,55 @@ dev.off()
 
 # Plot the normality tests and export resulting plot
 jpeg(paste(GraphPath,"/1 - DataStats/Dataset_Normality_",index,".png",sep=""), width = image.width, height = image.heigth)
-layout(matrix(c(1,2),2,1,byrow=TRUE))
+layout(matrix(c(1,1,1,1,2,3,2,3),4,2,byrow=TRUE))
 par(mar = rep(6, 4)) # Set the margin on all sides to 2
+
+# Quantité pour taille et options affichage graphique
+cex.axis   <- 0.85
+cex.mtext  <- 2
+cex.legend <- 2.5
+cex.pch    <- 1
 
 z.norm<-(logR-mean(logR))/sd(logR) ## standardized data 
 
-# Estimation de la densité des données
-plot(density(logR),main=paste("Estimation de la densité non-paramétrique des log-rendements de",index), cex.main=2)
+# Estimation de la densité des données et histogramme plus courbe normale
+hist_plot <- hist(logR, freq=FALSE, breaks=100,
+                  plot=TRUE, col="light gray", border="white",
+                  xlim=c(-6,6), xaxs="i", xlab="", ylab="",main="",axes=FALSE)
+# Ajout de la densité non-paramétrique
+lines(density(logR), col="black", lwd=1)
+# Ajout de la courbe d'une loi normale avec paramètre empirique
+curve(dnorm(x, mean=mu, sd=sigma),
+      col="black", lwd=1, lty=2, add=TRUE)
+# Ajout des axes, orientation du texte et ajustement de l'écart en
+#   l'axe et les étiquettes
+axis(side=1, cex.axis=cex.axis, padj=-0.6)
+axis(side=2, cex.axis=cex.axis, las=1)
+# Ajout d'un titre sur le graphique, modification de son emplacement,
+#   de sa taille et de sa police
+mtext(paste(index,"\nDensité des rendements",sep=""), side=3, line=0.5, font=4, las=0, cex=cex.mtext)
+# Ajout d'une légende sur le graphique
+legend("topleft", inset=0.05, legend=c("Non-paramétrique", "Normale"),
+       lty=c(1,2), lwd=1, pch=NA, pt.cex=cex.pch, col=c("black","black"),
+       bty="n", cex=cex.legend, ncol=1, x.intersp=1, y.intersp=1.5)
 
 # Comparaison des quantiles de l'échantillon par rapport à ceux d'une normale
-qqnorm(z.norm, cex.main=2) ## drawing the QQplot 
+qqnorm(z.norm, main="") ## drawing the QQplot 
+mtext("Q-Q Plot", side=3, line=2, font=4, las=0, cex=cex.mtext)
 abline(0,1) ## drawing a 45-degree reference line
+
+# box plot
+boxplot(logR,
+        border="black",
+        lwd=1,
+        varwidth = FALSE, xaxt="n", yaxt="n",xlab="",ylab="")
+title(main = "Box Plot",
+      cex.main=cex.mtext*1.5)
+title(xlab="log-rendements",
+      line=1)
+axis(side=2, las=1)
+title(ylab="Observations",
+      line=2)
 
 dev.off()
 
@@ -150,64 +188,192 @@ dev.off()
 # FAITS STYLISÉS DES RENDEMENTS FINANCIERS
 # \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 # -———————————————————————————————————————————————————————————————————————————————————
+title.size.var <- 12
+axis.lab.size.var <- 8
 
 epsilon <- logR-mean(logR)
-
-# Plot de l'autocorrélation des rendements et du carré des erreurs au carrée
-jpeg(paste(GraphPath,"/1 - DataStats/Dataset_ACF_",index,".png",sep=""), width = image.width, height = image.heigth)
-layout(matrix(c(1,2,3),3,1,byrow=TRUE))
-par(mar = rep(6, 4)) # Set the margin on all sides to 2
+conf.level <- 0.95
+ciline <- qnorm((1 - conf.level)/2)/sqrt(length(epsilon))
 
 # Fonction d'autocorrélation des rendements
-AutoCorrelation <- acf(logR, plot = FALSE)
-plot(AutoCorrelation, main="")
-title(main = paste("ACF des log-rendements de ",index,sep=""), cex.main=2)
+AutoCorrelation <- Acf(logR, plot = FALSE,lag.max = 200)
+# # Fonction d'autocorrélation des rendements centrés au carré
+AutoCorrelationCarreRES <- Acf(epsilon^2, plot = FALSE,lag.max = 200)
+# # Fonction d'autocorrélation des rendements centrés en valeur absolue
+AutoCorrelationAbsRES <- Acf(abs(epsilon), plot = FALSE,lag.max = 200)
 
-# Fonction d'autocorrélation des rendements centrés au carré
-AutoCorrelationRES <- acf(epsilon^2, plot = FALSE)
-plot(AutoCorrelationRES, main="")
-title(main = paste("ACF des log-rendements centrés au carré de ",index,sep=""), cex.main=2)
+A.AutoCorrelation <- with(AutoCorrelation, data.frame(lag, acf))
+B.AutoCorrelation <- with(AutoCorrelationCarreRES, data.frame(lag, acf))
+C.AutoCorrelation <- with(AutoCorrelationAbsRES, data.frame(lag, acf))
 
-# Fonction d'autocorrélation des rendements centrés au carré
-AutoCorrelationAbsRES <- acf(abs(epsilon), plot = FALSE)
-plot(AutoCorrelationAbsRES, main="")
-title(main = paste("ACF de la valeur absolue des log-rendements centrés de ",index,sep=""), cex.main=2)
+# Différence entre carré et val absolue
+D.AutoCorrelation <- data.frame(B.AutoCorrelation$lag, (C.AutoCorrelation-B.AutoCorrelation)$acf)
+names(D.AutoCorrelation) <- c("lag","acf")
 
-dev.off()
+A <- ggplot(data = A.AutoCorrelation, mapping = aes(x = lag, y = acf)) +
+  geom_hline(aes(yintercept = 0)) + 
+  geom_hline(aes(yintercept = ciline), linetype = 3, color = 'darkblue') + 
+  geom_hline(aes(yintercept = -ciline), linetype = 3, color = 'darkblue') +
+  geom_segment(mapping = aes(xend = lag, yend = 0)) +
+  labs(title=paste("ACF des log-rendements de ",index,sep=""),
+       x ="Lags", 
+       y = "Auto-Corrélation") + 
+  theme(
+    plot.title = element_text(color="Black", size=title.size.var, face="bold.italic"),
+    axis.title.x = element_text(color="black", size=axis.lab.size.var, face="bold"),
+    axis.title.y = element_text(color="black", size=axis.lab.size.var, face="bold")
+  )
 
+B <- ggplot(data = B.AutoCorrelation, mapping = aes(x = lag, y = acf)) +
+  geom_hline(aes(yintercept = 0)) + 
+  geom_hline(aes(yintercept = ciline), linetype = 3, color = 'darkblue') + 
+  geom_hline(aes(yintercept = -ciline), linetype = 3, color = 'darkblue') +
+  geom_segment(mapping = aes(xend = lag, yend = 0)) +
+  labs(title=paste("ACF des log-rendements centrés au carré de ",index,sep=""),
+       x ="Lags", 
+       y = "Auto-Corrélation") + 
+  theme(
+    plot.title = element_text(color="Black", size=title.size.var, face="bold.italic"),
+    axis.title.x = element_text(color="black", size=axis.lab.size.var, face="bold"),
+    axis.title.y = element_text(color="black", size=axis.lab.size.var, face="bold")
+  )
+
+C <- ggplot(data = C.AutoCorrelation, mapping = aes(x = lag, y = acf)) +
+  geom_hline(aes(yintercept = 0)) + 
+  geom_hline(aes(yintercept = ciline), linetype = 3, color = 'darkblue') + 
+  geom_hline(aes(yintercept = -ciline), linetype = 3, color = 'darkblue') +
+  geom_segment(mapping = aes(xend = lag, yend = 0)) +
+  labs(title=paste("ACF de la valeur absolue des log-rendements centrés de ",index,sep=""),
+       x ="Lags", 
+       y = "Auto-Corrélation") + 
+  theme(
+    plot.title = element_text(color="Black", size=title.size.var, face="bold.italic"),
+    axis.title.x = element_text(color="black", size=axis.lab.size.var, face="bold"),
+    axis.title.y = element_text(color="black", size=axis.lab.size.var, face="bold")
+  )
+
+D <- ggplot(data = D.AutoCorrelation, mapping = aes(x = lag, y = acf)) +
+  geom_hline(aes(yintercept = 0)) + 
+  geom_hline(aes(yintercept = ciline), linetype = 3, color = 'darkblue') + 
+  geom_hline(aes(yintercept = -ciline), linetype = 3, color = 'darkblue') +
+  geom_segment(mapping = aes(xend = lag, yend = 0)) +
+  labs(title="Différence entre Corrélation valeur absolue et au carré",
+       x ="Lags", 
+       y = "Différence") + 
+  theme(
+    plot.title = element_text(color="Black", size=title.size.var, face="bold.italic"),
+    axis.title.x = element_text(color="black", size=axis.lab.size.var, face="bold"),
+    axis.title.y = element_text(color="black", size=axis.lab.size.var, face="bold")
+  )
+
+p <- plot_grid(A,B,C,D, labels = "AUTO", ncol = 1)
+ggsave(paste(GraphPath,"/1 - DataStats/Dataset_ACF_",index,".png",sep=""), p)
+
+
+
+
+
+
+# --------------------------------------------------------
+# 
+# --------------------------------------------------------
 
 maxf <- function(x){max(x,0)}
 negImpact <- sapply(-epsilon,FUN=maxf)
 posImpact <- sapply(epsilon,FUN=maxf)
 
-# Plot afin d'illustrer l'effet de levier
-jpeg(paste(GraphPath,"/1 - DataStats/Dataset_LEVIER_",index,".png",sep=""), width = image.width, height = image.heigth)
-layout(matrix(c(1,2,3),3,1,byrow=TRUE))
-par(mar = rep(6, 4)) # Set the margin on all sides to 2
 
-# Corrélation entre la valeur absolue des erreurs et un impact négatif
-AutoCorrelationLEVIER.NEG <- ccf(abs(epsilon), negImpact, ylab = "Effet négatif", plot=F)
-# On ne conserve que les lag positifs
-AutoCorrelationLEVIER.NEG.lag <- AutoCorrelationLEVIER.NEG$acf[AutoCorrelationLEVIER.NEG$lag>=0]
-names(AutoCorrelationLEVIER.NEG.lag) <- AutoCorrelationLEVIER.NEG$lag[AutoCorrelationLEVIER.NEG$lag>=0]
-# Diagramme à bande des corrélations croisées
-barplot(height=c(AutoCorrelationLEVIER.NEG.lag), main="", xlab="lags",names.arg=names(AutoCorrelationLEVIER.NEG.lag))
-title(main = "Corrélation avec un impact négatif", cex.main=2)
+# Corrélation entre la valeur absolue des erreurs et un choc négatif
+AutoCorrelationLEVIER.NEG <- Ccf(abs(epsilon), negImpact, ylab = "Effet négatif", plot=F,lag.max = 200,level=0.95)
+# Corrélation entre la valeur absolue des erreurs et un choc positif
+AutoCorrelationLEVIER.POS <- Ccf(abs(epsilon), posImpact, ylab = "Effet positif", plot=F,lag.max = 200)
 
-# Corrélation entre la valeur absolue des erreurs et un impact positif
-AutoCorrelationLEVIER.POS <- ccf(abs(epsilon), posImpact, ylab = "Effet positif", plot=F)
-# On ne conserve que les lag positifs
-AutoCorrelationLEVIER.POS.lag <- AutoCorrelationLEVIER.POS$acf[AutoCorrelationLEVIER.POS$lag>=0]
-names(AutoCorrelationLEVIER.POS.lag) <- AutoCorrelationLEVIER.POS$lag[AutoCorrelationLEVIER.POS$lag>=0]
-# Diagramme à bande des corrélations croisées
-barplot(height=c(AutoCorrelationLEVIER.POS.lag), main="", xlab="lags",names.arg=names(AutoCorrelationLEVIER.POS.lag))
-title(main = "Corrélation avec un impact positif", cex.main=2)
+NEG.AutoCorrelation <- with(AutoCorrelationLEVIER.NEG, data.frame(lag, acf))
+NEG.AutoCorrelation.df <- subset(NEG.AutoCorrelation, lag >= 0)
+POS.AutoCorrelation <- with(AutoCorrelationLEVIER.POS, data.frame(lag, acf))
+POS.AutoCorrelation.df <- subset(POS.AutoCorrelation, lag >= 0)
 
-# Diagramme à bande de la différence entre les corrélations d'un impact négatif et d'un impact positif
-barplot(height=c(AutoCorrelationLEVIER.NEG.lag-AutoCorrelationLEVIER.POS.lag),names.arg=names(AutoCorrelationLEVIER.NEG.lag), col="red")
-title(main = "correlation impact négatif - correlation impact positif", cex.main=2)
+# Corrélation entre la valeur absolue des erreurs et un choc positif
+AutoCorrelationLEVIER.DIFF <- data.frame(NEG.AutoCorrelation.df$lag, (NEG.AutoCorrelation.df-POS.AutoCorrelation.df)$acf)
+names(AutoCorrelationLEVIER.DIFF) <- c("lag","acf")
 
-dev.off()
+NEG <- ggplot(data = NEG.AutoCorrelation.df, mapping = aes(x = lag, y = acf)) +
+  geom_hline(aes(yintercept = 0)) + 
+  geom_hline(aes(yintercept = ciline), linetype = 3, color = 'darkblue') + 
+  geom_hline(aes(yintercept = -ciline), linetype = 3, color = 'darkblue') +
+  geom_segment(mapping = aes(xend = lag, yend = 0)) +
+  labs(title="Corrélation avec un choc négatif",
+       x ="Lag", 
+       y = "Auto-Corrélation") + 
+  theme(
+    plot.title = element_text(color="Black", size=title.size.var, face="bold.italic"),
+    axis.title.x = element_text(color="black", size=axis.lab.size.var, face="bold"),
+    axis.title.y = element_text(color="black", size=axis.lab.size.var, face="bold")
+  )
+
+POS <- ggplot(data = POS.AutoCorrelation.df, mapping = aes(x = lag, y = acf)) +
+  geom_hline(aes(yintercept = 0)) + 
+  geom_hline(aes(yintercept = ciline), linetype = 3, color = 'darkblue') + 
+  geom_hline(aes(yintercept = -ciline), linetype = 3, color = 'darkblue') +
+  geom_segment(mapping = aes(xend = lag, yend = 0)) +
+  labs(title="Corrélation avec un choc positif",
+       x ="Lag", 
+       y = "Auto-Corrélation") + 
+  theme(
+    plot.title = element_text(color="Black", size=title.size.var, face="bold.italic"),
+    axis.title.x = element_text(color="black", size=axis.lab.size.var, face="bold"),
+    axis.title.y = element_text(color="black", size=axis.lab.size.var, face="bold")
+  )
+
+DIFF <- ggplot(data = AutoCorrelationLEVIER.DIFF, mapping = aes(x = lag, y = acf)) +
+  geom_hline(aes(yintercept = 0)) + 
+  geom_hline(aes(yintercept = ciline), linetype = 3, color = 'darkblue') + 
+  geom_hline(aes(yintercept = -ciline), linetype = 3, color = 'darkblue') +
+  geom_segment(mapping = aes(xend = lag, yend = 0)) +
+  labs(title="Corrélation choc négatif - Corrélation choc positif",
+       x ="Lag", 
+       y = "Différence") + 
+  theme(
+    plot.title = element_text(color="Black", size=title.size.var, face="bold.italic"),
+    axis.title.x = element_text(color="black", size=axis.lab.size.var, face="bold"),
+    axis.title.y = element_text(color="black", size=axis.lab.size.var, face="bold")
+  )
+
+p <- plot_grid(NEG,POS,DIFF, labels = "AUTO", ncol = 1)
+ggsave(paste(GraphPath,"/1 - DataStats/Dataset_LEVIER_",index,".png",sep=""), p)
+
+# maxf <- function(x){max(x,0)}
+# negImpact <- sapply(-epsilon,FUN=maxf)
+# posImpact <- sapply(epsilon,FUN=maxf)
+# 
+# # Plot afin d'illustrer l'effet de levier
+# jpeg(paste(GraphPath,"/1 - DataStats/Dataset_LEVIER_",index,".png",sep=""), width = image.width, height = image.heigth)
+# layout(matrix(c(1,2,3),3,1,byrow=TRUE))
+# par(mar = rep(6, 4)) # Set the margin on all sides to 2
+# 
+# # Corrélation entre la valeur absolue des erreurs et un impact négatif
+# AutoCorrelationLEVIER.NEG <- ccf(abs(epsilon), negImpact, ylab = "Effet négatif", plot=F)
+# # On ne conserve que les lag positifs
+# AutoCorrelationLEVIER.NEG.lag <- AutoCorrelationLEVIER.NEG$acf[AutoCorrelationLEVIER.NEG$lag>=0]
+# names(AutoCorrelationLEVIER.NEG.lag) <- AutoCorrelationLEVIER.NEG$lag[AutoCorrelationLEVIER.NEG$lag>=0]
+# # Diagramme à bande des corrélations croisées
+# barplot(height=c(AutoCorrelationLEVIER.NEG.lag), main="", xlab="lags",names.arg=names(AutoCorrelationLEVIER.NEG.lag))
+# title(main = "Corrélation avec un impact négatif", cex.main=2)
+# 
+# # Corrélation entre la valeur absolue des erreurs et un impact positif
+# AutoCorrelationLEVIER.POS <- ccf(abs(epsilon), posImpact, ylab = "Effet positif", plot=F)
+# # On ne conserve que les lag positifs
+# AutoCorrelationLEVIER.POS.lag <- AutoCorrelationLEVIER.POS$acf[AutoCorrelationLEVIER.POS$lag>=0]
+# names(AutoCorrelationLEVIER.POS.lag) <- AutoCorrelationLEVIER.POS$lag[AutoCorrelationLEVIER.POS$lag>=0]
+# # Diagramme à bande des corrélations croisées
+# barplot(height=c(AutoCorrelationLEVIER.POS.lag), main="", xlab="lags",names.arg=names(AutoCorrelationLEVIER.POS.lag))
+# title(main = "Corrélation avec un impact positif", cex.main=2)
+# 
+# # Diagramme à bande de la différence entre les corrélations d'un impact négatif et d'un impact positif
+# barplot(height=c(AutoCorrelationLEVIER.NEG.lag-AutoCorrelationLEVIER.POS.lag),names.arg=names(AutoCorrelationLEVIER.NEG.lag), col="red")
+# title(main = "correlation impact négatif - correlation impact positif", cex.main=2)
+# 
+# dev.off()
 
 boxplot(logR)
 
