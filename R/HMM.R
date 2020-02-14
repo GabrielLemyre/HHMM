@@ -12,6 +12,12 @@
 # Last version : january 13th, 2020
 # ----------------------------------------------------------------------------------------------------
 
+# ----------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------
+# TODO : Algorithme de Viterbi pour état plus probable au lieu de maxprob sortie de Kim filter
+# ----------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------
+
 #load numDeriv package for computing numerical derivatives
 #enables the use of functions grad and hessian
 # install.packages('numDeriv')
@@ -308,7 +314,7 @@ HMM.Train = function(index,
     # --------------------------------------------
     newFolderPlot <- paste(path,PlotName,sep="/")
     
-    # Testing if file exists
+    # Testing if file exists and creating it if not
     if(!file.exists(newFolderPlot)){
         dir.create(newFolderPlot) 
     }

@@ -37,12 +37,33 @@ GraphPath <- paste(path,"R/1 - Graphs",sep="/")
 # -------------------------------------------------------
 # 
 # 
+# -------------------------------------------------------
+# Paramètres graphiques
+# -------------------------------------------------------
+# Nombre de points à afficher sur l'axe horizontal
+nbTicks=10
+
+# JPEG DIMENSIONS FOR OUTPUTED FILE
+image.width <- 1250
+image.heigth <- 666
+
+# Quantité pour taille et options affichage graphique
+cex.axis   <- 0.85
+cex.mtext  <- 2
+cex.legend <- 2.5
+cex.pch    <- 1
+
+# Faits stylisés
+title.size.var <- 12
+axis.lab.size.var <- 8
 resdev=300
+# -------------------------------------------------------
+# 
+# 
 # -------------------------------------------------------
 # Préparation des données
 # -------------------------------------------------------
 data.Origin="R"
-nbTicks=10
 
 #load data
 Data <- read.csv("1 - Data/Table_Daily.csv") # MATLAB
@@ -53,8 +74,8 @@ mult <- 100          #multiply all returns by -mult-
 
 
 index <- "SPXIndex"
-start.date <- as.Date("1999-12-31")
-end.date   <- as.Date("2016-12-28")
+start.date <- as.Date("1928-01-03")
+end.date   <- as.Date("1991-04-30")
 #weekdays(start.date); weekdays(end.date);
 
 dates <- as.Date(as.character(Matlab2Rdate(Data[,1])))
@@ -96,9 +117,6 @@ Make.LaTeX.Table(matrix(des_stats,nrow=1),
                  Row.Pos = 'c',
                  title=paste("Statistiques descriptives sur ",index,sep=""))
 
-# JPEG DIMENSIONS FOR OUTPUTED FILE
-image.width <- 1250
-image.heigth <- 666
 
 # Plot the dataset and export resulting plot
 jpeg(paste(GraphPath,"/1 - DataStats/Dataset_",index,".png",sep=""), width = image.width, height = image.heigth)
@@ -126,11 +144,6 @@ jpeg(paste(GraphPath,"/1 - DataStats/Dataset_Normality_",index,".png",sep=""), w
 layout(matrix(c(1,1,1,1,2,3,2,3),4,2,byrow=TRUE))
 par(mar = rep(6, 4)) # Set the margin on all sides to 2
 
-# Quantité pour taille et options affichage graphique
-cex.axis   <- 0.85
-cex.mtext  <- 2
-cex.legend <- 2.5
-cex.pch    <- 1
 
 z.norm<-(logR-mean(logR))/sd(logR) ## standardized data 
 
@@ -188,8 +201,6 @@ dev.off()
 # FAITS STYLISÉS DES RENDEMENTS FINANCIERS
 # \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 # -———————————————————————————————————————————————————————————————————————————————————
-title.size.var <- 12
-axis.lab.size.var <- 8
 
 epsilon <- logR-mean(logR)
 conf.level <- 0.95
