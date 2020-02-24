@@ -148,7 +148,7 @@ par(mar = rep(6, 4)) # Set the margin on all sides to 2
 z.norm<-(logR-mean(logR))/sd(logR) ## standardized data 
 
 # Estimation de la densité des données et histogramme plus courbe normale
-hist_plot <- hist(logR, freq=FALSE, breaks=100,
+hist_plot <- hist(logR, freq=FALSE, breaks=300,
                   plot=TRUE, col="light gray", border="white",
                   xlim=c(-6,6), xaxs="i", xlab="", ylab="",main="",axes=FALSE)
 # Ajout de la densité non-paramétrique
@@ -500,6 +500,54 @@ test.3 <- HMM.Train(index <- index,
 real.mllk.3 <- -6020.947
 
 
+# ————————————————————————————————————————————————————————————————————————————————————
+# ————————————————————————————————————————————————————————————————————————————————————
+f <- function(dist, mat){
+  colors.spa <- c("black","red","blue","green")
+  
+  Invdistat <- 1-dist
+  normInvdistat <- Invdistat/sum(Invdistat)
+  
+  vectemp <- normInvdistat
+  vec <- normInvdistat
+  
+  for (i in 1:400){
+    vectemp <- vectemp%*%mat
+    vec <- rbind(vec,vectemp)
+  }
+  
+  plot(vec[,1],type="l",ylim=c(0,1))
+  abline(h=dist[1],col="black")
+  
+  for (i in 1:length(dist)){
+    lines(vec[,i],col=colors.spa[i])
+    abline(h=dist[i],col=colors.spa[i])
+  }
+  
+  f <- vec
+}
+
+with (test.3,{
+  GAMMA <<- HMM.Train$Gamma;
+  MU <<- HMM.Train$mu;
+  SIGMA <<- HMM.Train$sigma ;
+})
+print(GAMMA)
+
+# From diagnosisMarkovGamma
+res.dist <- Diagnosis(GAMMA, 
+                      additional.info = rbind(MU,SIGMA), 
+                      special.Weights=SIGMA,
+                      network.print = FALSE,
+                      docPath=path)
+
+res.3 <- f(res.dist$dist.asympt,GAMMA)
+
+
+# ————————————————————————————————————————————————————————————————————————————————————
+# ————————————————————————————————————————————————————————————————————————————————————
+
+
 test.4 <- HMM.Train(index <- index,
                     logR,
                     mu0=mu.Test.4,
@@ -516,6 +564,21 @@ test.4 <- HMM.Train(index <- index,
 real.mllk.4 <- -5970.916
 
 
+with (test.4,{
+  GAMMA <<- HMM.Train$Gamma;
+  MU <<- HMM.Train$mu;
+  SIGMA <<- HMM.Train$sigma ;
+})
+print(GAMMA)
+
+# From diagnosisMarkovGamma
+res.dist <- Diagnosis(GAMMA, 
+                      additional.info = rbind(MU,SIGMA), 
+                      special.Weights=SIGMA,
+                      network.print = FALSE,
+                      docPath=path)
+
+res.4 <- f(res.dist$dist.asympt,GAMMA)
 
 
 # ————————————————————————————————————————————————————————————————————————————————————
