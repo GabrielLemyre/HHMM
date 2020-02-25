@@ -74,12 +74,12 @@ mult <- 100          #multiply all returns by -mult-
 
 
 index <- "SPXIndex"
-start.date <- as.Date("1928-01-03")
-end.date   <- as.Date("1991-04-30")
+start.date <- as.Date("1960-01-04")
+end.date   <- as.Date("2019-02-15")
 #weekdays(start.date); weekdays(end.date);
 
 dates <- as.Date(as.character(Matlab2Rdate(Data[,1])))
-st <- which(dates==start.date)
+st <- max(which(dates==start.date),1)
 en <- min(which(dates==end.date),length(dates))
 dates <- dates[st:en]
 Pt <- as.numeric(as.character(Data[st:en,index]))
